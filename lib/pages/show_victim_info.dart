@@ -71,7 +71,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
   Future<void> _searchVictims() async {
     if (_victimFirestore == null) return;
 
-    if (mounted) {
+    if (mounted && ref.read(victimPageProvider).isLoading == false) {
       ref.read(victimPageProvider.notifier).setLoading(true);
     }
 
@@ -98,7 +98,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
             ref.read(victimPageProvider.notifier).setLoading(false);
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('No victims found'),
+                content: Text('No Victims found'),
                 backgroundColor: AppColors.error,
               ),
             );
@@ -125,6 +125,10 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
 
   Future<void> _removeUser(String email) async {
     if (_victimFirestore == null) return;
+
+    if (mounted) {
+      ref.read(victimPageProvider.notifier).setLoading(true);
+    }
 
     try {
       final querySnapshot = await _victimFirestore!
@@ -160,6 +164,10 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
   Future<void> _blockUser(String email) async {
     if (_victimFirestore == null) return;
 
+    if (mounted) {
+      ref.read(victimPageProvider.notifier).setLoading(true);
+    }
+
     try {
       final querySnapshot = await _victimFirestore!
           .collection('users')
@@ -183,7 +191,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Error blocking user, please retry'),
+            content: Text('Error blocking User, please retry'),
             backgroundColor: AppColors.error,
           ),
         );
@@ -193,6 +201,10 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
 
   Future<void> _unblockUser(String email) async {
     if (_victimFirestore == null) return;
+
+    if (mounted) {
+      ref.read(victimPageProvider.notifier).setLoading(true);
+    }
 
     try {
       final querySnapshot = await _victimFirestore!
@@ -217,7 +229,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Error blocking user, please retry'),
+            content: Text('Error blocking User, please retry'),
             backgroundColor: AppColors.error,
           ),
         );
@@ -341,7 +353,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Manage and monitor registered users',
+                  'Manage and monitor registered Users',
                   style: TextStyle(
                     fontSize: isMobile ? 14 : 16,
                     color: AppColors.textSecondary,
@@ -388,7 +400,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                       child: TextField(
                         controller: _searchController,
                         decoration: const InputDecoration(
-                          hintText: 'Enter user name to search...',
+                          hintText: 'Enter User name to search...',
                           hintStyle: TextStyle(
                             color: AppColors.textSecondary,
                             fontSize: 14,
@@ -462,7 +474,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                         child: TextField(
                           controller: _searchController,
                           decoration: const InputDecoration(
-                            hintText: 'Enter user name to search...',
+                            hintText: 'Enter User name to search...',
                             hintStyle: TextStyle(
                               color: AppColors.textSecondary,
                               fontSize: 14,
@@ -615,6 +627,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                     ),
                     children: [
                       TableCell(
+                        verticalAlignment: TableCellVerticalAlignment.middle,
                         child: Padding(
                           padding: const EdgeInsets.symmetric(
                             horizontal: AppSpacing.xl,
@@ -623,7 +636,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                           child: Text(
                             'Name',
                             style: AppText.formDescription.copyWith(
-                              fontSize: 16,
+                              fontSize: 14,
                               fontWeight: FontWeight.w600,
                               color: AppColors.textSecondary,
                               letterSpacing: 0.5,
@@ -632,6 +645,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                         ),
                       ),
                       TableCell(
+                        verticalAlignment: TableCellVerticalAlignment.middle,
                         child: Padding(
                           padding: const EdgeInsets.symmetric(
                             horizontal: AppSpacing.xl,
@@ -640,7 +654,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                           child: Text(
                             'Contact Information',
                             style: AppText.formDescription.copyWith(
-                              fontSize: 16,
+                              fontSize: 14,
                               fontWeight: FontWeight.w600,
                               color: AppColors.textSecondary,
                               letterSpacing: 0.5,
@@ -649,6 +663,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                         ),
                       ),
                       TableCell(
+                        verticalAlignment: TableCellVerticalAlignment.middle,
                         child: Padding(
                           padding: const EdgeInsets.symmetric(
                             horizontal: AppSpacing.xl,
@@ -657,7 +672,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                           child: Text(
                             'Location',
                             style: AppText.formDescription.copyWith(
-                              fontSize: 16,
+                              fontSize: 14,
                               fontWeight: FontWeight.w600,
                               color: AppColors.textSecondary,
                               letterSpacing: 0.5,
@@ -666,6 +681,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                         ),
                       ),
                       TableCell(
+                        verticalAlignment: TableCellVerticalAlignment.middle,
                         child: Padding(
                           padding: const EdgeInsets.symmetric(
                             horizontal: AppSpacing.xl,
@@ -674,7 +690,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                           child: Text(
                             'Remove User',
                             style: AppText.formDescription.copyWith(
-                              fontSize: 16,
+                              fontSize: 14,
                               fontWeight: FontWeight.w600,
                               color: AppColors.textSecondary,
                               letterSpacing: 0.5,
@@ -683,6 +699,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                         ),
                       ),
                       TableCell(
+                        verticalAlignment: TableCellVerticalAlignment.middle,
                         child: Padding(
                           padding: const EdgeInsets.symmetric(
                             horizontal: AppSpacing.xl,
@@ -691,7 +708,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                           child: Text(
                             'Actions',
                             style: AppText.formDescription.copyWith(
-                              fontSize: 16,
+                              fontSize: 14,
                               fontWeight: FontWeight.w600,
                               color: AppColors.textSecondary,
                               letterSpacing: 0.5,
@@ -704,7 +721,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                   // Data Rows
                   ...victims.asMap().entries.map((entry) {
                     final victim = entry.value;
-                    final name = victim['name'] ?? '';
+                    final name = victim['name'] ?? 'N/A';
                     final email = victim['email'] ?? 'N/A';
                     final location = victim['Location'] ?? 'N/A';
                     final isBlocked = victim['blocked'] ?? false;
@@ -720,13 +737,13 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                       children: [
                         // Name Cell
                         TableCell(
+                          verticalAlignment: TableCellVerticalAlignment.middle,
                           child: Padding(
                             padding: const EdgeInsets.symmetric(
                               horizontal: AppSpacing.xl,
-                              vertical: AppSpacing.lg,
                             ),
                             child: Text(
-                              name.isEmpty ? 'N/A' : name,
+                              name,
                               style: AppText.fieldLabel.copyWith(
                                 fontSize: 12,
                                 color: AppColors.textSecondary,
@@ -740,10 +757,10 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                         ),
                         // Contact Cell
                         TableCell(
+                          verticalAlignment: TableCellVerticalAlignment.middle,
                           child: Padding(
                             padding: const EdgeInsets.symmetric(
                               horizontal: AppSpacing.xl,
-                              vertical: AppSpacing.lg,
                             ),
                             child: Text(
                               email,
@@ -760,10 +777,10 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                         ),
                         // Location Cell
                         TableCell(
+                          verticalAlignment: TableCellVerticalAlignment.middle,
                           child: Padding(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: AppSpacing.xl,
-                              vertical: AppSpacing.lg,
+                              horizontal: AppSpacing.xxxl,
                             ),
                             child: Text(
                               location,
@@ -780,12 +797,14 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                         ),
                         // Remove User Cell
                         TableCell(
+                          verticalAlignment: TableCellVerticalAlignment.middle,
                           child: Padding(
                             padding: const EdgeInsets.symmetric(
                               horizontal: AppSpacing.xl,
                               vertical: AppSpacing.lg,
                             ),
                             child: IconButton(
+                              padding: EdgeInsets.zero,
                               onPressed: () {
                                 if (email != 'N/A') {
                                   _removeUser(email);
@@ -800,12 +819,14 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                         ),
                         // Actions Cell
                         TableCell(
+                          verticalAlignment: TableCellVerticalAlignment.middle,
                           child: Padding(
                             padding: const EdgeInsets.symmetric(
                               horizontal: AppSpacing.xl,
                               vertical: AppSpacing.lg,
                             ),
                             child: IconButton(
+                              padding: EdgeInsets.zero,
                               onPressed: () {
                                 if (email != 'N/A') {
                                   isBlocked
@@ -846,12 +867,9 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
   }
 
   Widget _buildMobileCard(Map<String, dynamic> victim) {
-    final firstName = victim['firstName'] ?? '';
-    final lastName = victim['lastName'] ?? '';
-    final fullName = '$firstName $lastName'.trim();
+    final name = victim['name'] ?? 'N/A';
     final email = victim['email'] ?? 'N/A';
-    final phoneNumber = victim['phoneNumber'] ?? 'N/A';
-    final location = victim['Location'] ?? 'N/A';
+    final location = victim['location'] ?? 'N/A';
     final isBlocked = victim['blocked'] ?? false;
 
     return Container(
@@ -871,105 +889,30 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Header Section
-          Container(
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  AppColors.primaryMaroon.withValues(alpha: 0.05),
-                  AppColors.accentRose.withValues(alpha: 0.02),
-                ],
+          Padding(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Text(
+              name,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: AppColors.darkCharcoal,
+                decoration: isBlocked
+                    ? TextDecoration.lineThrough
+                    : TextDecoration.none,
               ),
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(16),
-                topRight: Radius.circular(16),
-              ),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 50,
-                  height: 50,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [AppColors.primaryMaroon, AppColors.accentRose],
-                    ),
-                    borderRadius: BorderRadius.circular(25),
-                  ),
-                  child: Center(
-                    child: Text(
-                      fullName.isEmpty ? '?' : fullName[0].toUpperCase(),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.md),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        fullName.isEmpty ? 'N/A' : fullName,
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.darkCharcoal,
-                          decoration: isBlocked
-                              ? TextDecoration.lineThrough
-                              : TextDecoration.none,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 4),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isBlocked
-                              ? AppColors.error.withValues(alpha: 0.1)
-                              : AppColors.success.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          isBlocked ? 'Blocked' : 'Active',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: isBlocked
-                                ? AppColors.error
-                                : AppColors.success,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+              overflow: TextOverflow.ellipsis,
             ),
           ),
 
           // Content Section
           Padding(
-            padding: const EdgeInsets.all(AppSpacing.lg),
+            padding: const EdgeInsets.all(AppSpacing.md),
             child: Column(
               children: [
                 _MobileInfoRow(
                   label: 'Email',
                   value: email,
-                  isBlocked: isBlocked,
-                ),
-                const SizedBox(height: AppSpacing.md),
-                _MobileInfoRow(
-                  label: 'Phone',
-                  value: phoneNumber,
                   isBlocked: isBlocked,
                 ),
                 const SizedBox(height: AppSpacing.md),
@@ -992,7 +935,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                         },
                       ),
                     ),
-                    const SizedBox(width: AppSpacing.sm),
+                    const SizedBox(width: AppSpacing.xl),
                     Expanded(
                       child: _MobileActionButton(
                         label: isBlocked ? 'Unblock' : 'Block',

@@ -36,24 +36,18 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
     });
   }
 
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
-
   Future<void> _initSecondaryFirebase() async {
     if (mounted) {
       ref.read(ngoPageProvider.notifier).setLoading(true);
     }
 
     try {
-      final secondaryApp = await Firebase.initializeApp(
+      final ngoApp = await Firebase.initializeApp(
         name: 'life-line-ngo',
         options: _ngoFirebaseOptions,
       );
-      _ngoFirestore = FirebaseFirestore.instanceFor(app: secondaryApp);
-      await _fetchNgos();
+      _ngoFirestore = FirebaseFirestore.instanceFor(app: ngoApp);
+      await _searchNgos();
     } catch (e) {
       if (mounted) {
         ref.read(ngoPageProvider.notifier).setLoading(false);
@@ -67,34 +61,51 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
     }
   }
 
-  Future<void> _fetchNgos() async {
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _searchNgos() async {
     if (_ngoFirestore == null) return;
 
+    if (mounted && ref.read(ngoPageProvider).isLoading == false) {
+      ref.read(ngoPageProvider.notifier).setLoading(true);
+    }
     try {
-      final snapshot = await _ngoFirestore!
+      final querySnapshot = await _ngoFirestore!
           .collection('ngo-info-database')
           .get();
-
       if (mounted) {
-        ref.read(ngoPageProvider.notifier).setLoading(false);
-        if (snapshot.docs.isNotEmpty) {
-          for (var doc in snapshot.docs) {
-            final data = doc.data();
-            final isApproved = data['approved'] ?? false;
+        final allNgos = querySnapshot.docs.map((doc) => doc.data()).toList();
+        final searchTerm = _searchController.text;
 
-            if (isApproved && mounted) {
-              final ngoData = {
-                'docId': doc.id,
-                'name': data['ngoName'] ?? 'Unknown NGO',
-                'branchName': data['branchName'] ?? 'N/A',
-                'geographicalCoverage': data['geographicalCoverage'] ?? 'N/A',
-                'registrationNumber': data['registrationNumber'] ?? 'N/A',
-                'status': 'Approved',
-              };
-              ref.read(ngoPageProvider.notifier).addNgo(ngoData);
-              ref.read(ngoPageProvider.notifier).addAllNgos(ngoData);
-            }
+        if (searchTerm.isEmpty && mounted) {
+          ref.read(ngoPageProvider.notifier).addNgos(allNgos);
+          ref.read(ngoPageProvider.notifier).setLoading(false);
+          return;
+        }
+        var filteredNgos = allNgos.where((ngo) {
+          final name = (ngo['name'] ?? '').toString();
+          return name.contains(searchTerm);
+        }).toList();
+
+        if (filteredNgos.isEmpty) {
+          if (mounted) {
+            ref.read(ngoPageProvider.notifier).setLoading(false);
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('No NGOs found'),
+                backgroundColor: AppColors.error,
+              ),
+            );
+            return;
           }
+        }
+        if (mounted) {
+          ref.read(ngoPageProvider.notifier).addNgos(filteredNgos);
+          ref.read(ngoPageProvider.notifier).setLoading(false);
         }
       }
     } catch (e) {
@@ -102,7 +113,7 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
         ref.read(ngoPageProvider.notifier).setLoading(false);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Error fetching NGO data please refresh page'),
+            content: Text('Error searching data, please retry'),
             backgroundColor: AppColors.error,
           ),
         );
@@ -113,8 +124,19 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
   Future<void> _removeNgo(String docId) async {
     if (_ngoFirestore == null) return;
 
+    if (mounted) {
+      ref.read(ngoPageProvider.notifier).setLoading(true);
+    }
+
     try {
-      await _ngoFirestore!.collection('ngo-info-database').doc(docId).delete();
+      final querySnapshot = await _ngoFirestore!
+          .collection('ngo-info-database')
+          .where('docId', isEqualTo: docId)
+          .get();
+
+      for (var doc in querySnapshot.docs) {
+        await doc.reference.delete();
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -123,16 +145,13 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
             backgroundColor: AppColors.success,
           ),
         );
-        ref
-            .read(ngoPageProvider)
-            .ngos
-            .removeWhere((ngo) => ngo['docId'] == docId);
       }
+      _searchNgos();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('An unexpected error occured please try again'),
+            content: Text('Error removing user, please try again'),
             backgroundColor: AppColors.error,
           ),
         );
@@ -140,44 +159,78 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
     }
   }
 
-  void _blockNgo(String docId) {
+  Future<void> _blockNgo(String regNumber) async {
+    if (_ngoFirestore == null) return;
+
     if (mounted) {
-      ref.read(ngoPageProvider).blockedNgos.add(docId);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('NGO blocked successfully'),
-          backgroundColor: AppColors.success,
-        ),
-      );
+      ref.read(ngoPageProvider.notifier).setLoading(true);
+    }
+
+    try {
+      final querySnapshot = await _ngoFirestore!
+          .collection('ngo-info-database')
+          .where('registrationNumber', isEqualTo: regNumber)
+          .get();
+
+      for (var doc in querySnapshot.docs) {
+        await doc.reference.update({'blocked': true});
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('NGO blocked successfully'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+      _searchNgos();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Error blocking NGO, please retry'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
     }
   }
 
-  Future<void> _searchNgos() async {
-    if (mounted) {
-      ref.read(ngoPageProvider.notifier).setIsSearching(true);
-    }
-    if (mounted) {
-      final searchTerm = _searchController.text.toLowerCase();
+  Future<void> _unblockNgo(String regNumber) async {
+    if (_ngoFirestore == null) return;
 
-      if (searchTerm.isEmpty && mounted) {
-        ref.read(ngoPageProvider).ngos.clear();
-        ref
-            .read(ngoPageProvider)
-            .ngos
-            .addAll(ref.read(ngoPageProvider).allNgos);
-        ref.read(ngoPageProvider.notifier).setIsSearching(false);
-        return;
+    if (mounted) {
+      ref.read(ngoPageProvider.notifier).setLoading(true);
+    }
+
+    try {
+      final querySnapshot = await _ngoFirestore!
+          .collection('ngo-info-database')
+          .where('registrationNumber', isEqualTo: regNumber)
+          .get();
+
+      for (var doc in querySnapshot.docs) {
+        await doc.reference.update({'blocked': false});
       }
-      if (!mounted) return;
-      final filteredNgos = ref.read(ngoPageProvider).allNgos.where((ngo) {
-        final name = (ngo['name'] ?? '').toString().toLowerCase();
-        return name.contains(searchTerm);
-      }).toList();
 
       if (mounted) {
-        ref.read(ngoPageProvider).ngos.clear();
-        ref.read(ngoPageProvider).ngos.addAll(filteredNgos);
-        ref.read(ngoPageProvider.notifier).setIsSearching(false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('NGO unblocked successfully'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+      _searchNgos();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Error blocking NGO, please retry'),
+            backgroundColor: AppColors.error,
+          ),
+        );
       }
     }
   }
@@ -197,7 +250,10 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
             return Column(
               children: [
                 Container(
-                  decoration: SimpleDecoration.container(),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceLight,
+                    border: Border.all(color: AppColors.borderColor, width: 1),
+                  ),
                   padding: EdgeInsets.symmetric(
                     horizontal: isMobile ? AppSpacing.lg : AppSpacing.xxl,
                     vertical: isMobile ? AppSpacing.md : AppSpacing.lg,
@@ -212,32 +268,10 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'NGO List',
-                          style: AppText.formTitle.copyWith(
-                            fontSize: isMobile ? 20 : 24,
-                          ),
-                        ),
+                        _buildHeader(isMobile),
                         SizedBox(
                           height: isMobile ? AppSpacing.lg : AppSpacing.xxl,
                         ),
-                        MouseRegion(
-                          cursor: SystemMouseCursors.click,
-                          child: GestureDetector(
-                            onTap: () {
-                              if (mounted) {
-                                Navigator.of(context).pushReplacement(
-                                  MaterialPageRoute(
-                                    builder: (context) =>
-                                        const AdminDashboard(),
-                                  ),
-                                );
-                              }
-                            },
-                            child: const Icon(Icons.arrow_back),
-                          ),
-                        ),
-                        const SizedBox(height: AppSpacing.lg),
                         _buildSearchBar(isMobile),
                         SizedBox(
                           height: isMobile ? AppSpacing.lg : AppSpacing.xxl,
@@ -259,92 +293,249 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
     );
   }
 
-  Widget _buildSearchBar(bool isMobile) {
-    if (isMobile) {
-      return Column(
+  Widget _buildHeader(bool isMobile) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.xl),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppColors.primaryMaroon.withValues(alpha: 0.05),
+            AppColors.accentRose.withValues(alpha: 0.02),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppColors.primaryMaroon.withValues(alpha: 0.1),
+          width: 1,
+        ),
+      ),
+      child: Row(
         children: [
-          TextField(
-            controller: _searchController,
-            decoration: InputDecoration(
-              hintText: 'Search by name...',
-              hintStyle: AppText.textFieldHint,
-              prefixIcon: const Icon(
-                Icons.search,
-                color: AppColors.textSecondary,
-              ),
-              filled: true,
-              fillColor: AppColors.surfaceLight,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(
-                  AppDecorations.textFieldRadius,
-                ),
-                borderSide: BorderSide.none,
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.primaryMaroon,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: GestureDetector(
+              onTap: () {
+                if (mounted) {
+                  Navigator.of(context).pushReplacement(
+                    MaterialPageRoute(
+                      builder: (context) => const AdminDashboard(),
+                    ),
+                  );
+                }
+              },
+              child: const Icon(
+                Icons.arrow_back,
+                color: Colors.white,
+                size: 20,
               ),
             ),
           ),
-          const SizedBox(height: AppSpacing.md),
-          SizedBox(
-            width: double.infinity,
-            child: Consumer(
-              builder: (context, ref, child) {
-                if (!mounted) return const SizedBox.shrink();
-                final isSearching = ref.watch(
-                  ngoPageProvider.select((v) => v.isSearching),
-                );
-                return ElevatedButton(
-                  onPressed: isSearching ? null : _searchNgos,
-                  style: AppButtons.submit,
-                  child: isSearching
-                      ? const LoadingIndicator()
-                      : const Text('Search'),
-                );
-              },
+          const SizedBox(width: AppSpacing.lg),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'NGO Management',
+                  style: TextStyle(
+                    fontSize: isMobile ? 24 : 28,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.darkCharcoal,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Manage and monitor registered Ngos',
+                  style: TextStyle(
+                    fontSize: isMobile ? 14 : 16,
+                    color: AppColors.textSecondary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
-      );
-    }
+      ),
+    );
+  }
 
-    return Row(
-      children: [
-        Expanded(
-          child: TextField(
-            controller: _searchController,
-            decoration: InputDecoration(
-              hintText: 'Search by name...',
-              hintStyle: AppText.textFieldHint,
-              prefixIcon: const Icon(
-                Icons.search,
-                color: AppColors.textSecondary,
-              ),
-              filled: true,
-              fillColor: AppColors.surfaceLight,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(
-                  AppDecorations.textFieldRadius,
-                ),
-                borderSide: BorderSide.none,
-              ),
-            ),
+  Widget _buildSearchBar(bool isMobile) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.xl),
+      decoration: BoxDecoration(
+        color: AppColors.cardBackground,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.darkCharcoal.withValues(alpha: 0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 4),
           ),
-        ),
-        const SizedBox(width: AppSpacing.lg),
-        Consumer(
-          builder: (context, ref, child) {
-            if (!mounted) return const SizedBox.shrink();
-            final isSearching = ref.watch(
-              ngoPageProvider.select((v) => v.isSearching),
-            );
-            return ElevatedButton(
-              onPressed: isSearching ? null : _searchNgos,
-              style: AppButtons.submit,
-              child: isSearching
-                  ? const LoadingIndicator()
-                  : const Text('Search'),
-            );
-          },
-        ),
-      ],
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          isMobile
+              ? Column(
+                  children: [
+                    Container(
+                      decoration: BoxDecoration(
+                        color: AppColors.softBackground,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: AppColors.borderLight,
+                          width: 1,
+                        ),
+                      ),
+                      child: TextField(
+                        controller: _searchController,
+                        decoration: const InputDecoration(
+                          hintText: 'Enter Ngo name to search...',
+                          hintStyle: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 14,
+                          ),
+                          prefixIcon: Icon(
+                            Icons.search,
+                            color: AppColors.textSecondary,
+                            size: 20,
+                          ),
+                          border: InputBorder.none,
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: AppSpacing.lg,
+                            vertical: AppSpacing.md,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: Consumer(
+                        builder: (context, ref, child) {
+                          if (!mounted) return const SizedBox.shrink();
+                          final isLoading = ref.watch(
+                            ngoPageProvider.select((v) => v.isLoading),
+                          );
+                          return ElevatedButton(
+                            onPressed: isLoading ? null : _searchNgos,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primaryMaroon,
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: isLoading
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Text(
+                                    'Search Ngos',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                )
+              : Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: AppColors.softBackground,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: AppColors.borderLight,
+                            width: 1,
+                          ),
+                        ),
+                        child: TextField(
+                          controller: _searchController,
+                          decoration: const InputDecoration(
+                            hintText: 'Enter Ngo name to search...',
+                            hintStyle: TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 14,
+                            ),
+                            prefixIcon: Icon(
+                              Icons.search,
+                              color: AppColors.textSecondary,
+                              size: 20,
+                            ),
+                            border: InputBorder.none,
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: AppSpacing.lg,
+                              vertical: AppSpacing.md,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.lg),
+                    SizedBox(
+                      height: 48,
+                      child: Consumer(
+                        builder: (context, ref, child) {
+                          if (!mounted) return const SizedBox.shrink();
+                          final isLoading = ref.watch(
+                            ngoPageProvider.select((v) => v.isLoading),
+                          );
+                          return ElevatedButton(
+                            onPressed: isLoading ? null : _searchNgos,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primaryMaroon,
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: AppSpacing.xl,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: isLoading
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Text(
+                                    'Search Ngos',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+        ],
+      ),
     );
   }
 
@@ -353,9 +544,11 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
     final isLoading = ref.watch(ngoPageProvider.select((v) => v.isLoading));
     if (!mounted) return const SizedBox.shrink();
     final ngos = ref.watch(ngoPageProvider.select((v) => v.ngos));
+
     if (isLoading) {
       return const LoadingIndicator();
     }
+
     if (ngos.isEmpty) {
       return Center(
         child: Padding(
@@ -370,7 +563,7 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
               ),
               const SizedBox(height: AppSpacing.lg),
               Text(
-                'No NGO data found',
+                'No NGOs data found',
                 style: AppText.subtitle.copyWith(
                   color: AppColors.textSecondary,
                   fontWeight: FontWeight.w600,
@@ -389,260 +582,505 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
 
   Widget _buildWebNgoTable() {
     return Container(
-      decoration: SimpleDecoration.table(),
-      padding: const EdgeInsets.all(AppSpacing.xl),
-      child: Consumer(
-        builder: (context, ref, child) {
-          if (!mounted) return const SizedBox.shrink();
-          final ngos = ref.watch(ngoPageProvider.select((v) => v.ngos));
-          return Table(
-            border: TableBorder.all(color: AppColors.softBackground),
-            columnWidths: const {
-              0: FlexColumnWidth(3),
-              1: FlexColumnWidth(2),
-              2: FlexColumnWidth(2),
-              3: FlexColumnWidth(2),
-              4: FlexColumnWidth(2),
-              5: FlexColumnWidth(1),
-              6: FlexColumnWidth(1),
-            },
-            children: [
-              _TableHeader(),
-              ...ngos.map((ngo) => (_buildTableRow(ngo, ref))),
-            ],
-          );
-        },
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.darkCharcoal.withValues(alpha: 0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
-    );
-  }
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Table Content using Table widget
+          Consumer(
+            builder: (context, ref, child) {
+              if (!mounted) return const SizedBox.shrink();
+              final ngos = ref.watch(ngoPageProvider.select((v) => v.ngos));
+              return Table(
+                columnWidths: const {
+                  0: FlexColumnWidth(3),
+                  1: FlexColumnWidth(2),
+                  2: FlexColumnWidth(2),
+                  3: FlexColumnWidth(2),
+                  4: FlexColumnWidth(2),
+                  5: FlexColumnWidth(1),
+                  6: FlexColumnWidth(1),
+                },
+                children: [
+                  // Header Row
+                  TableRow(
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryMaroon.withValues(alpha: 0.03),
+                      border: const Border(
+                        bottom: BorderSide(
+                          color: AppColors.borderLight,
+                          width: 1,
+                        ),
+                      ),
+                    ),
+                    children: [
+                      TableCell(
+                        verticalAlignment: TableCellVerticalAlignment.middle,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.xl,
+                            vertical: AppSpacing.lg,
+                          ),
+                          child: Text(
+                            'Name',
+                            style: AppText.formDescription.copyWith(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textSecondary,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ),
+                      ),
+                      TableCell(
+                        verticalAlignment: TableCellVerticalAlignment.middle,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.xl,
+                            vertical: AppSpacing.lg,
+                          ),
+                          child: Text(
+                            'Branch Name',
+                            style: AppText.formDescription.copyWith(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textSecondary,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ),
+                      ),
+                      TableCell(
+                        verticalAlignment: TableCellVerticalAlignment.middle,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.xl,
+                            vertical: AppSpacing.lg,
+                          ),
+                          child: Text(
+                            'Geographical Coverage',
+                            style: AppText.formDescription.copyWith(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textSecondary,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ),
+                      ),
+                      TableCell(
+                        verticalAlignment: TableCellVerticalAlignment.middle,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.xl,
+                            vertical: AppSpacing.lg,
+                          ),
+                          child: Text(
+                            'Registration Number',
+                            style: AppText.formDescription.copyWith(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textSecondary,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ),
+                      ),
+                      TableCell(
+                        verticalAlignment: TableCellVerticalAlignment.middle,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.xl,
+                            vertical: AppSpacing.lg,
+                          ),
+                          child: Text(
+                            'Status',
+                            style: AppText.formDescription.copyWith(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textSecondary,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ),
+                      ),
+                      TableCell(
+                        verticalAlignment: TableCellVerticalAlignment.middle,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.xl,
+                            vertical: AppSpacing.lg,
+                          ),
+                          child: Text(
+                            'Actions',
+                            style: AppText.formDescription.copyWith(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textSecondary,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ),
+                      ),
+                      TableCell(
+                        verticalAlignment: TableCellVerticalAlignment.middle,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.xl,
+                            vertical: AppSpacing.lg,
+                          ),
+                          child: Text(
+                            'Remove NGO',
+                            style: AppText.formDescription.copyWith(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textSecondary,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  // Data Rows
+                  ...ngos.asMap().entries.map((entry) {
+                    final ngo = entry.value;
+                    final name = ngo['ngoName'] ?? 'N/A';
+                    final branchName = ngo['branchName'] ?? 'N/A';
+                    final coverage = ngo['geographicalCoverage'] ?? 'N/A';
+                    final regNumber = ngo['registrationNumber'] ?? false;
+                    final isBlocked = ngo['blocked'] ?? false;
+                    final isApproved = ngo['approved'] ?? false;
 
-  TableRow _buildTableRow(Map<String, dynamic> ngo, WidgetRef ref) {
-    final name = ngo['name'] ?? 'Unknown NGO';
-    final branchName = ngo['branchName'] ?? 'N/A';
-    final geographicalCoverage = ngo['geographicalCoverage'] ?? 'N/A';
-    final registrationNumber = ngo['registrationNumber'] ?? 'N/A';
-    final status = ngo['status'] ?? 'N/A';
-    final docId = ngo['docId'] ?? '';
-    if (!mounted) return const TableRow(children: []);
-    final isBlocked = ref.watch(ngoPageProvider).blockedNgos.contains(docId);
-
-    final textStyle = TextStyle(
-      decoration: isBlocked ? TextDecoration.lineThrough : TextDecoration.none,
-    );
-
-    return TableRow(
-      children: [
-        _TableCell(text: name, style: textStyle),
-        _TableCell(text: branchName, style: textStyle),
-        _TableCell(text: geographicalCoverage, style: textStyle),
-        _TableCell(text: registrationNumber, style: textStyle),
-        _TableCell(text: status, style: textStyle),
-        _ActionCell(
-          icon: Icons.delete,
-          onPressed: () {
-            if (docId.isNotEmpty) _removeNgo(docId);
-          },
-        ),
-        _ActionCell(
-          icon: Icons.block,
-          onPressed: () {
-            if (docId.isNotEmpty) _blockNgo(docId);
-          },
-        ),
-      ],
+                    return TableRow(
+                      decoration: BoxDecoration(
+                        color: AppColors.softBackground.withValues(alpha: 0.3),
+                        border: Border.all(
+                          color: AppColors.borderLight,
+                          width: 1,
+                        ),
+                      ),
+                      children: [
+                        // Name Cell
+                        TableCell(
+                          verticalAlignment: TableCellVerticalAlignment.middle,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.xl,
+                            ),
+                            child: Text(
+                              name,
+                              style: AppText.fieldLabel.copyWith(
+                                fontSize: 12,
+                                color: AppColors.textSecondary,
+                                decoration: isBlocked
+                                    ? TextDecoration.lineThrough
+                                    : TextDecoration.none,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                        // Branch Name Cell
+                        TableCell(
+                          verticalAlignment: TableCellVerticalAlignment.middle,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.xl,
+                            ),
+                            child: Text(
+                              branchName,
+                              style: AppText.fieldLabel.copyWith(
+                                fontSize: 12,
+                                color: AppColors.textSecondary,
+                                decoration: isBlocked
+                                    ? TextDecoration.lineThrough
+                                    : TextDecoration.none,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                        // Coverage Cell
+                        TableCell(
+                          verticalAlignment: TableCellVerticalAlignment.middle,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.xxxl,
+                            ),
+                            child: Text(
+                              coverage,
+                              style: AppText.fieldLabel.copyWith(
+                                fontSize: 12,
+                                color: AppColors.textSecondary,
+                                decoration: isBlocked
+                                    ? TextDecoration.lineThrough
+                                    : TextDecoration.none,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                        // Reg Number Cell
+                        TableCell(
+                          verticalAlignment: TableCellVerticalAlignment.middle,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.xl,
+                              vertical: AppSpacing.lg,
+                            ),
+                            child: Text(
+                              regNumber,
+                              style: AppText.fieldLabel.copyWith(
+                                fontSize: 12,
+                                color: AppColors.textSecondary,
+                                decoration: isBlocked
+                                    ? TextDecoration.lineThrough
+                                    : TextDecoration.none,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                        // Status Cell
+                        TableCell(
+                          verticalAlignment: TableCellVerticalAlignment.middle,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.xl,
+                              vertical: AppSpacing.lg,
+                            ),
+                            child: Text(
+                              isApproved ? 'Approved' : 'Not Approved',
+                              style: AppText.fieldLabel.copyWith(
+                                fontSize: 12,
+                                color: AppColors.textSecondary,
+                                decoration: isBlocked
+                                    ? TextDecoration.lineThrough
+                                    : TextDecoration.none,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                        // Actions Cell (Block/Unblock)
+                        TableCell(
+                          verticalAlignment: TableCellVerticalAlignment.middle,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.xl,
+                              vertical: AppSpacing.lg,
+                            ),
+                            child: IconButton(
+                              padding: EdgeInsets.zero,
+                              onPressed: () {
+                                if (regNumber != 'N/A') {
+                                  isBlocked
+                                      ? _unblockNgo(regNumber)
+                                      : _blockNgo(regNumber);
+                                }
+                              },
+                              icon: isBlocked
+                                  ? const Icon(
+                                      Icons.block,
+                                      color: AppColors.accentRose,
+                                    )
+                                  : const Icon(
+                                      Icons.lock_open,
+                                      color: AppColors.accentRose,
+                                    ),
+                            ),
+                          ),
+                        ),
+                        // Remove NGO Cell
+                        TableCell(
+                          verticalAlignment: TableCellVerticalAlignment.middle,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.xl,
+                              vertical: AppSpacing.lg,
+                            ),
+                            child: IconButton(
+                              padding: EdgeInsets.zero,
+                              onPressed: () {
+                                if (regNumber != 'N/A') _removeNgo(regNumber);
+                              },
+                              icon: const Icon(
+                                Icons.delete,
+                                color: AppColors.accentRose,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  }),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
     );
   }
 
   Widget _buildMobileNgoList(WidgetRef ref) {
     if (!mounted) return const SizedBox.shrink();
     final ngos = ref.watch(ngoPageProvider.select((v) => v.ngos));
-    return Column(
-      children: ngos.map((ngo) => _buildMobileCard(ngo, ref)).toList(),
-    );
+    return Column(children: ngos.map((ngo) => _buildMobileCard(ngo)).toList());
   }
 
-  Widget _buildMobileCard(Map<String, dynamic> ngo, WidgetRef ref) {
-    final name = ngo['name'] ?? 'Unknown NGO';
+  Widget _buildMobileCard(Map<String, dynamic> ngo) {
+    final name = ngo['ngoName'] ?? 'N/A';
     final branchName = ngo['branchName'] ?? 'N/A';
-    final geographicalCoverage = ngo['geographicalCoverage'] ?? 'N/A';
-    final registrationNumber = ngo['registrationNumber'] ?? 'N/A';
-    final status = ngo['status'] ?? 'N/A';
-    final docId = ngo['docId'] ?? '';
-    if (!mounted) return const SizedBox.shrink();
-    final isBlocked = ref.watch(ngoPageProvider).blockedNgos.contains(docId);
-
-    final textDecoration = isBlocked
-        ? TextDecoration.lineThrough
-        : TextDecoration.none;
+    final coverage = ngo['geographicalCoverage'] ?? 'N/A';
+    final regNumber = ngo['registrationNumber'] ?? false;
+    final isBlocked = ngo['blocked'] ?? false;
 
     return Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.lg),
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: SimpleDecoration.card(),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.darkCharcoal.withValues(alpha: 0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            name,
-            style: AppText.fieldLabel.copyWith(
-              fontSize: 18,
-              decoration: textDecoration,
+          // Header Section
+          Padding(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Text(
+              name,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: AppColors.darkCharcoal,
+                decoration: isBlocked
+                    ? TextDecoration.lineThrough
+                    : TextDecoration.none,
+              ),
+              overflow: TextOverflow.ellipsis,
             ),
           ),
-          const SizedBox(height: AppSpacing.md),
-          _InfoRow(
-            icon: Icons.business_center,
-            text: 'Branch: $branchName',
-            decoration: textDecoration,
+
+          // Content Section
+          Padding(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Column(
+              children: [
+                _MobileInfoRow(
+                  label: 'Branch Name',
+                  value: branchName,
+                  isBlocked: isBlocked,
+                ),
+                const SizedBox(height: AppSpacing.md),
+                _MobileInfoRow(
+                  label: 'Coverage',
+                  value: coverage,
+                  isBlocked: isBlocked,
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                _MobileInfoRow(
+                  label: 'Registration Number',
+                  value: regNumber,
+                  isBlocked: isBlocked,
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                // Actions
+                Row(
+                  children: [
+                    Expanded(
+                      child: _MobileActionButton(
+                        label: 'Remove',
+                        color: AppColors.error,
+                        onPressed: () {
+                          if (regNumber != 'N/A') _removeNgo(regNumber);
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.xl),
+                    Expanded(
+                      child: _MobileActionButton(
+                        label: isBlocked ? 'Unblock' : 'Block',
+                        color: isBlocked
+                            ? AppColors.success
+                            : AppColors.warning,
+                        onPressed: () {
+                          if (regNumber != 'N/A') {
+                            isBlocked
+                                ? _unblockNgo(regNumber)
+                                : _blockNgo(regNumber);
+                          }
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: AppSpacing.sm),
-          _InfoRow(
-            icon: Icons.location_on,
-            text: 'Coverage: $geographicalCoverage',
-            decoration: textDecoration,
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          _InfoRow(
-            icon: Icons.numbers,
-            text: 'Reg #: $registrationNumber',
-            decoration: textDecoration,
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          _InfoRow(
-            icon: Icons.check_circle,
-            text: 'Status: $status',
-            decoration: textDecoration,
-          ),
-          const SizedBox(height: AppSpacing.md),
-          _buildActionButtons(docId),
         ],
       ),
     );
   }
-
-  Widget _buildActionButtons(String docId) {
-    return Row(
-      children: [
-        Expanded(
-          child: _MobileActionButton(
-            icon: Icons.delete,
-            label: 'Remove',
-            color: AppColors.error,
-            onPressed: () {
-              if (docId.isNotEmpty) _removeNgo(docId);
-            },
-          ),
-        ),
-        const SizedBox(width: AppSpacing.sm),
-        Expanded(
-          child: _MobileActionButton(
-            icon: Icons.block,
-            label: 'Block',
-            color: AppColors.warning,
-            onPressed: () {
-              if (docId.isNotEmpty) _blockNgo(docId);
-            },
-          ),
-        ),
-      ],
-    );
-  }
 }
 
-class _TableHeader extends TableRow {
-  _TableHeader()
-    : super(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              AppColors.primaryMaroon.withValues(alpha: 0.15),
-              AppColors.accentRose.withValues(alpha: 0.1),
-            ],
-          ),
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(16),
-            topRight: Radius.circular(16),
-          ),
-        ),
-        children: const [
-          _HeaderCell(text: 'Name'),
-          _HeaderCell(text: 'Branch Name'),
-          _HeaderCell(text: 'Geographical Coverage'),
-          _HeaderCell(text: 'Registration Number'),
-          _HeaderCell(text: 'Status'),
-          _HeaderCell(text: 'Remove NGO'),
-          _HeaderCell(text: 'Block NGO'),
-        ],
-      );
-}
+class _MobileInfoRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final bool isBlocked;
 
-class _HeaderCell extends StatelessWidget {
-  final String text;
-  const _HeaderCell({required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(12.0),
-      child: Text(text, style: AppText.fieldLabel),
-    );
-  }
-}
-
-class _TableCell extends StatelessWidget {
-  final String text;
-  final TextStyle? style;
-  const _TableCell({required this.text, this.style});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(12.0),
-      child: Text(text, style: style),
-    );
-  }
-}
-
-class _ActionCell extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback onPressed;
-  const _ActionCell({required this.icon, required this.onPressed});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(12.0),
-      child: IconButton(
-        icon: Icon(icon, color: AppColors.primaryMaroon),
-        onPressed: onPressed,
-      ),
-    );
-  }
-}
-
-class _InfoRow extends StatelessWidget {
-  final IconData icon;
-  final String text;
-  final TextDecoration decoration;
-  const _InfoRow({
-    required this.icon,
-    required this.text,
-    required this.decoration,
+  const _MobileInfoRow({
+    required this.label,
+    required this.value,
+    required this.isBlocked,
   });
 
   @override
   Widget build(BuildContext context) {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 16, color: AppColors.textSecondary),
-        const SizedBox(width: AppSpacing.sm),
+        SizedBox(
+          width: 80,
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontSize: 14,
+              color: AppColors.textSecondary,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
         Expanded(
           child: Text(
-            text,
-            style: AppText.base.copyWith(
-              color: AppColors.textSecondary,
-              decoration: decoration,
+            value,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: AppColors.darkCharcoal,
+              decoration: isBlocked
+                  ? TextDecoration.lineThrough
+                  : TextDecoration.none,
             ),
+            overflow: TextOverflow.ellipsis,
           ),
         ),
       ],
@@ -651,13 +1089,11 @@ class _InfoRow extends StatelessWidget {
 }
 
 class _MobileActionButton extends StatelessWidget {
-  final IconData icon;
   final String label;
   final Color color;
   final VoidCallback onPressed;
 
   const _MobileActionButton({
-    required this.icon,
     required this.label,
     required this.color,
     required this.onPressed,
@@ -665,23 +1101,21 @@ class _MobileActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return OutlinedButton(
+    return ElevatedButton(
       onPressed: onPressed,
-      style: OutlinedButton.styleFrom(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: color.withValues(alpha: 0.1),
         foregroundColor: color,
-        side: BorderSide(color: color),
-        padding: const EdgeInsets.symmetric(
-          vertical: AppSpacing.md,
-          horizontal: AppSpacing.sm,
+        elevation: 0,
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+          side: BorderSide(color: color.withValues(alpha: 0.3)),
         ),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 24),
-          const SizedBox(height: 4),
-          Text(label, style: const TextStyle(fontSize: 12)),
-        ],
+      child: Text(
+        label,
+        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
       ),
     );
   }
