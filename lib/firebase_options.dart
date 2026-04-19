@@ -60,4 +60,5 @@ class DefaultFirebaseOptions {
     authDomain: 'life-line-admin.firebaseapp.com',
     storageBucket: 'life-line-admin.firebasestorage.app',
   );
+
 }

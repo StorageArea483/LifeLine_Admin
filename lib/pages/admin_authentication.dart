@@ -1,99 +1,76 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:life_line_admin/providers/change_pass_provider.dart';
+import 'package:life_line_admin/providers/admin_auth_provider.dart';
 import 'package:life_line_admin/styles/styles.dart';
-import 'package:life_line_admin/pages/admin_authentication.dart';
+import 'package:life_line_admin/pages/admin_dasboard.dart';
 import 'package:life_line_admin/widgets/global/loading_indicator.dart';
+import 'package:life_line_admin/widgets/global/security_question.dart';
 
-class ChangePassword extends ConsumerStatefulWidget {
-  const ChangePassword({super.key});
+class AdminAuthentication extends ConsumerStatefulWidget {
+  const AdminAuthentication({super.key});
 
   @override
-  ConsumerState<ChangePassword> createState() => _ChangePasswordState();
+  ConsumerState<AdminAuthentication> createState() =>
+      _AdminAuthenticationState();
 }
 
-class _ChangePasswordState extends ConsumerState<ChangePassword> {
+class _AdminAuthenticationState extends ConsumerState<AdminAuthentication> {
   final _formKey = GlobalKey<FormState>();
-  final TextEditingController _newPasswordController = TextEditingController();
-  final TextEditingController _confirmPasswordController =
-      TextEditingController();
+  final TextEditingController _idController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   @override
   void dispose() {
-    _newPasswordController.dispose();
-    _confirmPasswordController.dispose();
+    _idController.dispose();
+    _passwordController.dispose();
     super.dispose();
   }
 
-  String? _validateNewPassword(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return 'Field cannot be left empty';
-    }
-    if (value.length < 6) {
-      return 'Password must be at least 6 characters';
-    }
-    return null;
-  }
+  Future<void> _submitForm() async {
+    if (_formKey.currentState!.validate()) {
+      if (mounted) {
+        ref.read(adminAuthPageProvider.notifier).setLoading(true);
+      }
 
-  String? _validateConfirmPassword(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return 'Field cannot be left empty';
-    }
-    if (value != _newPasswordController.text) {
-      return 'Passwords do not match';
-    }
-    return null;
-  }
+      try {
+        final querySnapshot = await _firestore
+            .collection('admin-info-database')
+            .where('Id', isEqualTo: _idController.text.trim())
+            .where('Password', isEqualTo: _passwordController.text.trim())
+            .limit(1)
+            .get();
 
-  Future<void> _handleResetPassword() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    if (mounted) {
-      ref.read(changePassProvider.notifier).setIsLoading(true);
-    }
-    try {
-      final querySnapshot = await _firestore
-          .collection('admin-info-database')
-          .limit(1)
-          .get();
-
-      if (querySnapshot.docs.isEmpty) {
         if (mounted) {
+          ref.read(adminAuthPageProvider.notifier).setLoading(false);
+          if (querySnapshot.docs.isNotEmpty) {
+            if (mounted) {
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(builder: (context) => const AdminDashboard()),
+              );
+            }
+          } else {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Invalid ID or password. Please try again.'),
+                  backgroundColor: AppColors.error,
+                ),
+              );
+            }
+          }
+        }
+      } catch (e) {
+        if (mounted) {
+          ref.read(adminAuthPageProvider.notifier).setLoading(false);
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Admin record not found'),
+              content: Text('An unexpected error occurred'),
               backgroundColor: AppColors.error,
             ),
           );
         }
-        return;
-      }
-
-      final docId = querySnapshot.docs.first.id;
-      await _firestore.collection('admin-info-database').doc(docId).update({
-        'Password': _confirmPasswordController.text.trim(),
-      });
-
-      if (mounted) {
-        ref.read(changePassProvider.notifier).setIsLoading(false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Password updated successfully!'),
-            backgroundColor: AppColors.success,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ref.read(changePassProvider.notifier).setIsLoading(false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Error updating password'),
-            backgroundColor: AppColors.error,
-          ),
-        );
       }
     }
   }
@@ -121,7 +98,10 @@ class _ChangePasswordState extends ConsumerState<ChangePassword> {
                       child: SingleChildScrollView(
                         child: ConstrainedBox(
                           constraints: const BoxConstraints(maxWidth: 470),
-                          child: _buildMainContent(false, false),
+                          child: _buildCardContent(
+                            isMobile: false,
+                            isTablet: false,
+                          ),
                         ),
                       ),
                     ),
@@ -131,7 +111,7 @@ class _ChangePasswordState extends ConsumerState<ChangePassword> {
                 Expanded(
                   flex: 5,
                   child: Image.asset(
-                    'assets/images/rescue_img2.webp',
+                    'assets/images/rescue_img.webp',
                     fit: BoxFit.cover,
                     height: double.infinity,
                     width: double.infinity,
@@ -153,7 +133,10 @@ class _ChangePasswordState extends ConsumerState<ChangePassword> {
                     constraints: BoxConstraints(
                       maxWidth: isTablet ? 500 : double.infinity,
                     ),
-                    child: _buildMainContent(isMobile, isTablet),
+                    child: _buildCardContent(
+                      isMobile: isMobile,
+                      isTablet: isTablet,
+                    ),
                   ),
                 ),
               ),
@@ -164,7 +147,7 @@ class _ChangePasswordState extends ConsumerState<ChangePassword> {
     );
   }
 
-  Widget _buildMainContent(bool isMobile, bool isTablet) {
+  Widget _buildCardContent({required bool isMobile, required bool isTablet}) {
     return Container(
       decoration: SimpleDecoration.card(),
       padding: const EdgeInsets.all(AppSpacing.xxxxl),
@@ -173,41 +156,44 @@ class _ChangePasswordState extends ConsumerState<ChangePassword> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Restore Your Password', style: AppText.welcomeTitle),
+            const Text('Confirm Your Identity', style: AppText.welcomeTitle),
             const SizedBox(height: AppSpacing.md),
             Text(
-              'Please enter your new password below. It must be at least 8 characters long.',
+              'Secure sign-in for authorized personnel.',
               style: AppText.subtitle.copyWith(fontSize: isMobile ? 16 : 18),
             ),
             const SizedBox(height: AppSpacing.xxl),
-            const Text('Enter your new password', style: AppText.fieldLabel),
+            const Text('Authentication ID', style: AppText.fieldLabel),
             const SizedBox(height: AppSpacing.sm),
             Consumer(
               builder: (context, ref, child) {
                 if (!mounted) return const SizedBox.shrink();
-                final obscureNewPassword = ref.watch(
-                  changePassProvider.select((v) => v.obscureNewPassword),
+                final obscureTextField = ref.watch(
+                  adminAuthPageProvider.select((v) => v.obscureTextField),
                 );
                 return TextFormField(
-                  controller: _newPasswordController,
-                  obscureText: obscureNewPassword,
-                  validator: _validateNewPassword,
-                  decoration:
-                      AppTextFields.textFieldDecoration(
-                        'Enter new password',
-                      ).copyWith(
+                  controller: _idController,
+                  obscureText: obscureTextField,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter your ID';
+                    }
+                    return null;
+                  },
+                  decoration: AppTextFields.textFieldDecoration('Enter your ID')
+                      .copyWith(
                         suffixIcon: IconButton(
                           icon: Icon(
-                            obscureNewPassword
-                                ? Icons.visibility_off_outlined
-                                : Icons.visibility_outlined,
+                            obscureTextField
+                                ? Icons.visibility_outlined
+                                : Icons.visibility_off_outlined,
                             color: AppColors.textSecondary,
                           ),
                           onPressed: () {
                             if (mounted) {
                               ref
-                                  .read(changePassProvider.notifier)
-                                  .toggleObscureNewPassword();
+                                  .read(adminAuthPageProvider.notifier)
+                                  .toggleObscureTextField();
                             }
                           },
                         ),
@@ -216,34 +202,42 @@ class _ChangePasswordState extends ConsumerState<ChangePassword> {
               },
             ),
             const SizedBox(height: AppSpacing.xl),
-            const Text('Confirm your new password', style: AppText.fieldLabel),
+            const Text('Password', style: AppText.fieldLabel),
             const SizedBox(height: AppSpacing.sm),
             Consumer(
               builder: (context, ref, child) {
                 if (!mounted) return const SizedBox.shrink();
-                final obscureConfirmPassword = ref.watch(
-                  changePassProvider.select((v) => v.obscureConfirmPassword),
+                final obscurePassword = ref.watch(
+                  adminAuthPageProvider.select((v) => v.obscurePassword),
                 );
                 return TextFormField(
-                  controller: _confirmPasswordController,
-                  obscureText: obscureConfirmPassword,
-                  validator: _validateConfirmPassword,
+                  controller: _passwordController,
+                  obscureText: obscurePassword,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter your password';
+                    }
+                    if (value.length < 6) {
+                      return 'Password must be at least 6 characters';
+                    }
+                    return null;
+                  },
                   decoration:
                       AppTextFields.textFieldDecoration(
-                        'Confirm new password',
+                        'Enter your password',
                       ).copyWith(
                         suffixIcon: IconButton(
                           icon: Icon(
-                            obscureConfirmPassword
-                                ? Icons.visibility_off_outlined
-                                : Icons.visibility_outlined,
+                            obscurePassword
+                                ? Icons.visibility_outlined
+                                : Icons.visibility_off_outlined,
                             color: AppColors.textSecondary,
                           ),
                           onPressed: () {
                             if (mounted) {
                               ref
-                                  .read(changePassProvider.notifier)
-                                  .toggleObscureConfirmPassword();
+                                  .read(adminAuthPageProvider.notifier)
+                                  .toggleObscurePassword();
                             }
                           },
                         ),
@@ -259,14 +253,14 @@ class _ChangePasswordState extends ConsumerState<ChangePassword> {
                 builder: (context, ref, child) {
                   if (!mounted) return const SizedBox.shrink();
                   final isLoading = ref.watch(
-                    changePassProvider.select((v) => v.isLoading),
+                    adminAuthPageProvider.select((v) => v.isLoading),
                   );
                   return ElevatedButton(
-                    onPressed: isLoading ? null : _handleResetPassword,
+                    onPressed: isLoading ? null : _submitForm,
                     style: AppButtons.submit,
                     child: isLoading
                         ? const LoadingIndicator()
-                        : const Text('Reset Password'),
+                        : const Text('Confirm Identity'),
                   );
                 },
               ),
@@ -280,12 +274,12 @@ class _ChangePasswordState extends ConsumerState<ChangePassword> {
                     if (mounted) {
                       Navigator.of(context).pushReplacement(
                         MaterialPageRoute(
-                          builder: (context) => const AdminAuthentication(),
+                          builder: (context) => const SecurityQuestion(),
                         ),
                       );
                     }
                   },
-                  child: const Text('Back to Login', style: AppText.link),
+                  child: const Text('Forgot Password?', style: AppText.link),
                 ),
               ),
             ),

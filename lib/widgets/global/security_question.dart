@@ -1,24 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:life_line_admin/services/functions/transitions_in_pages.dart';
-import 'package:life_line_admin/utils/styles.dart';
-import 'package:life_line_admin/widgets/constants/constants.dart';
-import 'package:life_line_admin/widgets/global/admin_authentication.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:life_line_admin/providers/security_question_provider.dart';
+import 'package:life_line_admin/styles/styles.dart';
+import 'package:life_line_admin/pages/admin_authentication.dart';
 import 'package:life_line_admin/widgets/global/change_password.dart';
+import 'package:life_line_admin/widgets/global/loading_indicator.dart';
 
-class SecurityQuestion extends StatefulWidget {
+class SecurityQuestion extends ConsumerStatefulWidget {
   const SecurityQuestion({super.key});
 
   @override
-  State<SecurityQuestion> createState() => _SecurityQuestionState();
+  ConsumerState<SecurityQuestion> createState() => _SecurityQuestionState();
 }
 
-class _SecurityQuestionState extends State<SecurityQuestion> {
+class _SecurityQuestionState extends ConsumerState<SecurityQuestion> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _securityAnswerController =
       TextEditingController();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -36,9 +36,9 @@ class _SecurityQuestionState extends State<SecurityQuestion> {
   Future<void> _handleRestorePassword() async {
     if (!_formKey.currentState!.validate()) return;
 
-    setState(() {
-      _isLoading = true;
-    });
+    if (mounted) {
+      ref.read(securityPageProvider.notifier).state = true;
+    }
 
     try {
       final querySnapshot = await _firestore
@@ -48,30 +48,29 @@ class _SecurityQuestionState extends State<SecurityQuestion> {
           .get();
 
       if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-
-        if (querySnapshot.docs.isNotEmpty) {
-          pageTransition(context, const ChangePassword());
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Incorrect security answer. Please try again.'),
-              backgroundColor: Colors.red,
-            ),
+        ref.read(securityPageProvider.notifier).state = false;
+        if (querySnapshot.docs.isNotEmpty && mounted) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (context) => const ChangePassword()),
           );
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Incorrect security answer. Please try again.'),
+                backgroundColor: AppColors.error,
+              ),
+            );
+          }
         }
       }
     } catch (e) {
       if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
+        ref.read(securityPageProvider.notifier).state = false;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('An error occurred: ${e.toString()}'),
-            backgroundColor: Colors.red,
+          const SnackBar(
+            content: Text('An unexpected error occurred'),
+            backgroundColor: AppColors.error,
           ),
         );
       }
@@ -81,53 +80,82 @@ class _SecurityQuestionState extends State<SecurityQuestion> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: AppContainers.pageContainer,
-        child: SafeArea(
-          child: Center(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final isMobile = constraints.maxWidth < 600;
-                final isTablet =
-                    constraints.maxWidth >= 600 && constraints.maxWidth < 1024;
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final isMobile = constraints.maxWidth < 600;
+          final isTablet =
+              constraints.maxWidth >= 600 && constraints.maxWidth < 1024;
+          final isDesktop = constraints.maxWidth >= 1024;
 
-                return SingleChildScrollView(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: isMobile ? AppSpacing.lg : AppSpacing.xl,
-                    vertical: isMobile ? AppSpacing.lg : AppSpacing.xxl,
+          if (isDesktop) {
+            return Row(
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: Container(
+                    decoration: const BoxDecoration(
+                      gradient: AppDecorations.pageLinearGradient,
+                    ),
+                    child: Center(
+                      child: SingleChildScrollView(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 470),
+                          child: _buildMainCard(false, false),
+                        ),
+                      ),
+                    ),
                   ),
-                  child: _buildMainCard(isMobile, isTablet),
-                );
-              },
+                ),
+
+                Expanded(
+                  flex: 5,
+                  child: Image.asset(
+                    'assets/images/rescue_img3.webp',
+                    fit: BoxFit.cover,
+                    height: double.infinity,
+                    width: double.infinity,
+                  ),
+                ),
+              ],
+            );
+          }
+
+          return Container(
+            decoration: const BoxDecoration(
+              gradient: AppDecorations.pageLinearGradient,
             ),
-          ),
-        ),
+            child: SafeArea(
+              child: Center(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(16.0),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: isTablet ? 500 : double.infinity,
+                    ),
+                    child: _buildMainCard(isMobile, isTablet),
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }
 
   Widget _buildMainCard(bool isMobile, bool isTablet) {
     return Container(
-      decoration: isMobile ? null : SimpleDecoration.card(),
-      padding: EdgeInsets.all(isMobile ? AppSpacing.lg : AppSpacing.xxxxl),
-      constraints: BoxConstraints(
-        maxWidth: isMobile
-            ? double.infinity
-            : isTablet
-            ? 500
-            : 440,
-      ),
+      decoration: SimpleDecoration.card(),
+      padding: const EdgeInsets.all(AppSpacing.xxxxl),
       child: Form(
         key: _formKey,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
+            const Text(
               'Let\'s restore your password',
-              style: AppText.welcomeTitle.copyWith(
-                fontSize: isMobile ? 28 : 36,
-              ),
+              style: AppText.welcomeTitle,
             ),
             const SizedBox(height: AppSpacing.md),
             Text(
@@ -137,7 +165,7 @@ class _SecurityQuestionState extends State<SecurityQuestion> {
               ),
             ),
             const SizedBox(height: AppSpacing.xxl),
-            Text('Security Question', style: AppText.fieldLabel),
+            const Text('Security Question', style: AppText.fieldLabel),
             const SizedBox(height: AppSpacing.sm),
             TextFormField(
               controller: _securityAnswerController,
@@ -150,12 +178,18 @@ class _SecurityQuestionState extends State<SecurityQuestion> {
             SizedBox(
               width: double.infinity,
               height: isMobile ? 48 : AppSizes.submitButtonHeight,
-              child: ElevatedButton(
-                onPressed: _isLoading ? null : _handleRestorePassword,
-                style: AppButtons.submit,
-                child: _isLoading
-                    ? const _LoadingIndicator()
-                    : const Text('Restore Password'),
+              child: Consumer(
+                builder: (context, ref, child) {
+                  if (!mounted) return const SizedBox.shrink();
+                  final isLoading = ref.watch(securityPageProvider);
+                  return ElevatedButton(
+                    onPressed: isLoading ? null : _handleRestorePassword,
+                    style: AppButtons.submit,
+                    child: isLoading
+                        ? const LoadingIndicator()
+                        : const Text('Restore Password'),
+                  );
+                },
               ),
             ),
             const SizedBox(height: AppSpacing.lg),
@@ -164,47 +198,32 @@ class _SecurityQuestionState extends State<SecurityQuestion> {
                 cursor: SystemMouseCursors.click,
                 child: GestureDetector(
                   onTap: () {
-                    pageTransition(context, const AdminAuthentication());
+                    if (mounted) {
+                      Navigator.of(context).pushReplacement(
+                        MaterialPageRoute(
+                          builder: (context) => const AdminAuthentication(),
+                        ),
+                      );
+                    }
                   },
-                  child: const _BackToLoginLink(),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.arrow_back,
+                        size: 16,
+                        color: AppColors.primaryMaroon,
+                      ),
+                      SizedBox(width: AppSpacing.xs),
+                      Text('Back to Login', style: AppText.link),
+                    ],
+                  ),
                 ),
               ),
             ),
           ],
         ),
       ),
-    );
-  }
-}
-
-class _LoadingIndicator extends StatelessWidget {
-  const _LoadingIndicator();
-
-  @override
-  Widget build(BuildContext context) {
-    return const SizedBox(
-      width: 20,
-      height: 20,
-      child: CircularProgressIndicator(
-        strokeWidth: 2,
-        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-      ),
-    );
-  }
-}
-
-class _BackToLoginLink extends StatelessWidget {
-  const _BackToLoginLink();
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const Icon(Icons.arrow_back, size: 16, color: AppColors.primaryMaroon),
-        const SizedBox(width: AppSpacing.xs),
-        Text('Back to Login', style: AppText.link),
-      ],
     );
   }
 }

@@ -14,7 +14,7 @@ dependencies:
   cloud_firestore: ^5.4.4
   firebase_auth: ^5.3.3
   url_launcher: ^6.2.5
-  supabase_flutter: ^2.5.0
+  flutter_riverpod: ^3.3.1
 
 dev_dependencies:
   flutter_test:
@@ -25,4 +25,16 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/Logos/ 
+    - assets/Logos/
+    - assets/images/
+  
+  fonts:
+    - family: BebasNeue
+      fonts:
+        - asset: assets/fonts/BebasNeue-Regular.ttf
+    - family: OpenSansItalic
+      fonts:
+        - asset: assets/fonts/OpenSans-Italic-VariableFont_wdth,wght.ttf
+    - family: OpenSansVariable
+      fonts:
+        - asset: assets/fonts/OpenSans-VariableFont_wdth,wght.ttf
