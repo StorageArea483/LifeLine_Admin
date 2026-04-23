@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:life_line_admin/pages/settings_screen.dart';
 import 'package:life_line_admin/styles/styles.dart';
 import 'package:life_line_admin/pages/admin_dasboard.dart';
 import 'package:life_line_admin/pages/admin_authentication.dart';
@@ -87,28 +88,51 @@ class _NavBarState extends State<NavBar> {
                             cursor: SystemMouseCursors.click,
                             child: GestureDetector(
                               child: const Text(
+                                'SOS Logs',
+                                style: AppText.base,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: AppSpacing.xxl),
+                          MouseRegion(
+                            cursor: SystemMouseCursors.click,
+                            child: GestureDetector(
+                              onTap: () {
+                                if (mounted) {
+                                  Navigator.of(context).pushReplacement(
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          const SettingsScreen(),
+                                    ),
+                                  );
+                                }
+                              },
+                              child: const Text(
                                 'Settings',
                                 style: AppText.base,
                               ),
                             ),
                           ),
                           const SizedBox(width: AppSpacing.xxl),
-                          ElevatedButton(
-                            onPressed: () {
-                              if (mounted) {
-                                Navigator.of(context).pushReplacement(
-                                  MaterialPageRoute(
-                                    builder: (context) =>
-                                        const AdminAuthentication(),
-                                  ),
-                                );
-                              }
-                            },
-                            style: AppButtons.submit,
-                            child: Text(
-                              'Logout',
-                              style: AppText.fieldLabel.copyWith(
-                                color: AppColors.white,
+                          MouseRegion(
+                            cursor: SystemMouseCursors.click,
+                            child: ElevatedButton(
+                              onPressed: () {
+                                if (mounted) {
+                                  Navigator.of(context).pushReplacement(
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          const AdminAuthentication(),
+                                    ),
+                                  );
+                                }
+                              },
+                              style: AppButtons.submit,
+                              child: Text(
+                                'Logout',
+                                style: AppText.fieldLabel.copyWith(
+                                  color: AppColors.white,
+                                ),
                               ),
                             ),
                           ),
@@ -182,6 +206,15 @@ Widget buildDrawer(BuildContext context) {
               color: AppColors.primaryMaroon,
             ),
             title: const Text('Reports', style: AppText.fieldLabel),
+            onTap: () {
+              if (context.mounted) {
+                Navigator.pop(context);
+              }
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.history, color: AppColors.primaryMaroon),
+            title: const Text('SOS Logs', style: AppText.fieldLabel),
             onTap: () {
               if (context.mounted) {
                 Navigator.pop(context);

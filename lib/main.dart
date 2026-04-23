@@ -17,7 +17,7 @@ class MainApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return const MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'LifeLine Admin',
+      title: 'LifeLine',
       home: AdminAuthentication(),
     );
   }

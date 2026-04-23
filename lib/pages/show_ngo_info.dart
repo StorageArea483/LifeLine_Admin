@@ -123,15 +123,6 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
       for (var doc in querySnapshot.docs) {
         await doc.reference.delete();
       }
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('NGO removed successfully'),
-            backgroundColor: AppColors.success,
-          ),
-        );
-      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -160,15 +151,6 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
       for (var doc in querySnapshot.docs) {
         await doc.reference.update({'blocked': true});
       }
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('NGO blocked successfully'),
-            backgroundColor: AppColors.success,
-          ),
-        );
-      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -196,15 +178,6 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
 
       for (var doc in querySnapshot.docs) {
         await doc.reference.update({'blocked': false});
-      }
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('NGO unblocked successfully'),
-            backgroundColor: AppColors.success,
-          ),
-        );
       }
     } catch (e) {
       if (mounted) {
@@ -532,12 +505,14 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
     final ngos = ref.watch(ngoPageProvider.select((v) => v.ngos));
 
     if (isLoading) {
-      return const SizedBox(
-        width: 20,
-        height: 20,
-        child: CircularProgressIndicator(
-          color: AppColors.primaryMaroon,
-          strokeWidth: 2,
+      return const Center(
+        child: SizedBox(
+          width: 40,
+          height: 40,
+          child: CircularProgressIndicator(
+            color: AppColors.primaryMaroon,
+            strokeWidth: 4,
+          ),
         ),
       );
     }

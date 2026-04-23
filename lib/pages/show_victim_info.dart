@@ -163,15 +163,6 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
       for (var doc in querySnapshot.docs) {
         await doc.reference.update({'blocked': true});
       }
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('User blocked successfully'),
-            backgroundColor: AppColors.success,
-          ),
-        );
-      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -199,15 +190,6 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
 
       for (var doc in querySnapshot.docs) {
         await doc.reference.update({'blocked': false});
-      }
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('User unblocked successfully'),
-            backgroundColor: AppColors.success,
-          ),
-        );
       }
     } catch (e) {
       if (mounted) {
@@ -535,12 +517,14 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
     final victims = ref.watch(victimPageProvider.select((v) => v.victims));
 
     if (isLoading) {
-      return const SizedBox(
-        width: 20,
-        height: 20,
-        child: CircularProgressIndicator(
-          color: AppColors.surfaceLight,
-          strokeWidth: 2,
+      return const Center(
+        child: SizedBox(
+          width: 40,
+          height: 40,
+          child: CircularProgressIndicator(
+            color: AppColors.primaryMaroon,
+            strokeWidth: 4,
+          ),
         ),
       );
     }

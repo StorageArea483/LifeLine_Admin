@@ -493,11 +493,11 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
             if (isLoading)
               const Center(
                 child: SizedBox(
-                  width: 20,
-                  height: 20,
+                  width: 40,
+                  height: 40,
                   child: CircularProgressIndicator(
-                    color: AppColors.surfaceLight,
-                    strokeWidth: 2,
+                    color: AppColors.primaryMaroon,
+                    strokeWidth: 4,
                   ),
                 ),
               )
