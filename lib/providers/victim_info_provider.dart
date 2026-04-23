@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
 class VictimInfoNotifier extends StateNotifier<VictimInfoState> {
@@ -8,7 +9,8 @@ class VictimInfoNotifier extends StateNotifier<VictimInfoState> {
     state = state.copyWith(isLoading: loading);
   }
 
-  void addVictims(List<Map<String, dynamic>> victims) {
+  void setVictims(List<Map<String, dynamic>> victims) {
+    if (listEquals(state.victims, victims)) return;
     state = state.copyWith(victims: victims);
   }
 }

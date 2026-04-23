@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:life_line_admin/providers/change_pass_provider.dart';
 import 'package:life_line_admin/styles/styles.dart';
 import 'package:life_line_admin/pages/admin_authentication.dart';
-import 'package:life_line_admin/widgets/global/loading_indicator.dart';
 
 class ChangePassword extends ConsumerStatefulWidget {
   const ChangePassword({super.key});
@@ -265,7 +264,14 @@ class _ChangePasswordState extends ConsumerState<ChangePassword> {
                     onPressed: isLoading ? null : _handleResetPassword,
                     style: AppButtons.submit,
                     child: isLoading
-                        ? const LoadingIndicator()
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              color: AppColors.surfaceLight,
+                              strokeWidth: 2,
+                            ),
+                          )
                         : const Text('Reset Password'),
                   );
                 },

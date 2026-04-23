@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:life_line_admin/providers/admin_auth_provider.dart';
 import 'package:life_line_admin/styles/styles.dart';
 import 'package:life_line_admin/pages/admin_dasboard.dart';
-import 'package:life_line_admin/widgets/global/loading_indicator.dart';
 import 'package:life_line_admin/widgets/global/security_question.dart';
 
 class AdminAuthentication extends ConsumerStatefulWidget {
@@ -259,7 +258,14 @@ class _AdminAuthenticationState extends ConsumerState<AdminAuthentication> {
                     onPressed: isLoading ? null : _submitForm,
                     style: AppButtons.submit,
                     child: isLoading
-                        ? const LoadingIndicator()
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              color: AppColors.surfaceLight,
+                              strokeWidth: 2,
+                            ),
+                          )
                         : const Text('Confirm Identity'),
                   );
                 },

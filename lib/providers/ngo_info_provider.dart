@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
 class NgoInfoNotifier extends StateNotifier<NgoInfoState> {
@@ -7,7 +8,8 @@ class NgoInfoNotifier extends StateNotifier<NgoInfoState> {
     state = state.copyWith(isLoading: loading);
   }
 
-  void addNgos(List<Map<String, dynamic>> ngos) {
+  void setNgos(List<Map<String, dynamic>> ngos) {
+    if (listEquals(state.ngos, ngos)) return;
     state = state.copyWith(ngos: ngos);
   }
 }

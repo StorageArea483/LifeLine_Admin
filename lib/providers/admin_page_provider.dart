@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
 class AdminPageNotifier extends StateNotifier<AdminPageState> {
@@ -8,8 +9,9 @@ class AdminPageNotifier extends StateNotifier<AdminPageState> {
     state = state.copyWith(isLoading: loading);
   }
 
-  void addNgoRequest(Map<String, dynamic> request) {
-    state = state.copyWith(ngoRequests: [...state.ngoRequests, request]);
+  void setNgoRequests(List<Map<String, dynamic>> requests) {
+    if (listEquals(state.ngoRequests, requests)) return;
+    state = state.copyWith(ngoRequests: requests);
   }
 }
 

@@ -1,10 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:life_line_admin/providers/ngo_info_provider.dart';
 import 'package:life_line_admin/styles/styles.dart';
-import 'package:life_line_admin/widgets/global/loading_indicator.dart';
 import 'package:life_line_admin/widgets/nav_bar.dart';
 import 'package:life_line_admin/pages/admin_dasboard.dart';
 
@@ -18,6 +19,7 @@ class ShowNgoInfo extends ConsumerStatefulWidget {
 class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
   final TextEditingController _searchController = TextEditingController();
   FirebaseFirestore? _ngoFirestore;
+  StreamSubscription? ngoSubscription;
 
   static const FirebaseOptions _ngoFirebaseOptions = FirebaseOptions(
     apiKey: 'AIzaSyBeieryGaw4bh4dtbrI54qsIc51XkP6SoM',
@@ -27,6 +29,13 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
     authDomain: 'life-line-ngo.firebaseapp.com',
     storageBucket: 'life-line-ngo.firebasestorage.app',
   );
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    ngoSubscription?.cancel();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -42,12 +51,12 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
     }
 
     try {
-      final ngoApp = await Firebase.initializeApp(
+      final secondaryApp = await Firebase.initializeApp(
         name: 'life-line-ngo',
         options: _ngoFirebaseOptions,
       );
-      _ngoFirestore = FirebaseFirestore.instanceFor(app: ngoApp);
-      await _searchNgos();
+      _ngoFirestore = FirebaseFirestore.instanceFor(app: secondaryApp);
+      _listenToNgos();
     } catch (e) {
       if (mounted) {
         ref.read(ngoPageProvider.notifier).setLoading(false);
@@ -61,67 +70,44 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
     }
   }
 
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _searchNgos() async {
+  void _listenToNgos() {
     if (_ngoFirestore == null) return;
 
-    if (mounted && ref.read(ngoPageProvider).isLoading == false) {
+    if (mounted) {
       ref.read(ngoPageProvider.notifier).setLoading(true);
     }
-    try {
-      final querySnapshot = await _ngoFirestore!
-          .collection('ngo-info-database')
-          .get();
-      if (mounted) {
-        final allNgos = querySnapshot.docs.map((doc) => doc.data()).toList();
-        final searchTerm = _searchController.text;
-
-        if (searchTerm.isEmpty && mounted) {
-          ref.read(ngoPageProvider.notifier).addNgos(allNgos);
-          ref.read(ngoPageProvider.notifier).setLoading(false);
-          return;
-        }
-        var filteredNgos = allNgos.where((ngo) {
-          final name = (ngo['name'] ?? '').toString();
-          return name.contains(searchTerm);
-        }).toList();
-
-        if (filteredNgos.isEmpty) {
-          if (mounted) {
-            ref.read(ngoPageProvider.notifier).setLoading(false);
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('No NGOs found'),
-                backgroundColor: AppColors.error,
-              ),
-            );
-            return;
-          }
-        }
-        if (mounted) {
-          ref.read(ngoPageProvider.notifier).addNgos(filteredNgos);
-          ref.read(ngoPageProvider.notifier).setLoading(false);
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ref.read(ngoPageProvider.notifier).setLoading(false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Error searching data, please retry'),
-            backgroundColor: AppColors.error,
-          ),
-        );
-      }
+    if (ngoSubscription != null) {
+      ngoSubscription!.cancel();
     }
+
+    ngoSubscription = _ngoFirestore!
+        .collection('ngo-info-database')
+        .snapshots()
+        .listen((snapshot) {
+          if (!mounted) return;
+
+          final allNgos = snapshot.docs.map((doc) => doc.data()).toList();
+
+          final searchTerm = _searchController.text;
+
+          List<Map<String, dynamic>> finalList;
+
+          if (searchTerm.isEmpty) {
+            finalList = allNgos;
+          } else {
+            finalList = allNgos.where((ngo) {
+              final name = (ngo['ngoName'] ?? '').toString();
+              return name.contains(searchTerm);
+            }).toList();
+          }
+          if (mounted) {
+            ref.read(ngoPageProvider.notifier).setNgos(finalList);
+            ref.read(ngoPageProvider.notifier).setLoading(false);
+          }
+        });
   }
 
-  Future<void> _removeNgo(String docId) async {
+  Future<void> _removeNgo(String regNumber) async {
     if (_ngoFirestore == null) return;
 
     if (mounted) {
@@ -131,7 +117,7 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
     try {
       final querySnapshot = await _ngoFirestore!
           .collection('ngo-info-database')
-          .where('docId', isEqualTo: docId)
+          .where('registrationNumber', isEqualTo: regNumber)
           .get();
 
       for (var doc in querySnapshot.docs) {
@@ -146,7 +132,6 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
           ),
         );
       }
-      _searchNgos();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -184,7 +169,6 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
           ),
         );
       }
-      _searchNgos();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -222,7 +206,6 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
           ),
         );
       }
-      _searchNgos();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -319,20 +302,23 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
               color: AppColors.primaryMaroon,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: GestureDetector(
-              onTap: () {
-                if (mounted) {
-                  Navigator.of(context).pushReplacement(
-                    MaterialPageRoute(
-                      builder: (context) => const AdminDashboard(),
-                    ),
-                  );
-                }
-              },
-              child: const Icon(
-                Icons.arrow_back,
-                color: Colors.white,
-                size: 20,
+            child: MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                onTap: () {
+                  if (mounted) {
+                    Navigator.of(context).pushReplacement(
+                      MaterialPageRoute(
+                        builder: (context) => const AdminDashboard(),
+                      ),
+                    );
+                  }
+                },
+                child: const Icon(
+                  Icons.arrow_back,
+                  color: Colors.white,
+                  size: 20,
+                ),
               ),
             ),
           ),
@@ -427,7 +413,7 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
                             ngoPageProvider.select((v) => v.isLoading),
                           );
                           return ElevatedButton(
-                            onPressed: isLoading ? null : _searchNgos,
+                            onPressed: isLoading ? null : _listenToNgos,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.primaryMaroon,
                               foregroundColor: Colors.white,
@@ -501,7 +487,7 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
                             ngoPageProvider.select((v) => v.isLoading),
                           );
                           return ElevatedButton(
-                            onPressed: isLoading ? null : _searchNgos,
+                            onPressed: isLoading ? null : _listenToNgos,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.primaryMaroon,
                               foregroundColor: Colors.white,
@@ -546,7 +532,14 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
     final ngos = ref.watch(ngoPageProvider.select((v) => v.ngos));
 
     if (isLoading) {
-      return const LoadingIndicator();
+      return const SizedBox(
+        width: 20,
+        height: 20,
+        child: CircularProgressIndicator(
+          color: AppColors.primaryMaroon,
+          strokeWidth: 2,
+        ),
+      );
     }
 
     if (ngos.isEmpty) {
@@ -604,12 +597,12 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
               return Table(
                 columnWidths: const {
                   0: FlexColumnWidth(3),
-                  1: FlexColumnWidth(2),
+                  1: FlexColumnWidth(1.5),
                   2: FlexColumnWidth(2),
                   3: FlexColumnWidth(2),
-                  4: FlexColumnWidth(2),
-                  5: FlexColumnWidth(1),
-                  6: FlexColumnWidth(1),
+                  4: FlexColumnWidth(1),
+                  5: FlexColumnWidth(1.2),
+                  6: FlexColumnWidth(1.3),
                 },
                 children: [
                   // Header Row
@@ -633,6 +626,8 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
                           ),
                           child: Text(
                             'Name',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                             style: AppText.formDescription.copyWith(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
@@ -651,6 +646,8 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
                           ),
                           child: Text(
                             'Branch Name',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                             style: AppText.formDescription.copyWith(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
@@ -669,6 +666,8 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
                           ),
                           child: Text(
                             'Geographical Coverage',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                             style: AppText.formDescription.copyWith(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
@@ -687,6 +686,8 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
                           ),
                           child: Text(
                             'Registration Number',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                             style: AppText.formDescription.copyWith(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
@@ -705,6 +706,8 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
                           ),
                           child: Text(
                             'Status',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                             style: AppText.formDescription.copyWith(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
@@ -718,11 +721,13 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
                         verticalAlignment: TableCellVerticalAlignment.middle,
                         child: Padding(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: AppSpacing.xl,
+                            horizontal: AppSpacing.xxxxl,
                             vertical: AppSpacing.lg,
                           ),
                           child: Text(
                             'Actions',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                             style: AppText.formDescription.copyWith(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
@@ -736,11 +741,13 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
                         verticalAlignment: TableCellVerticalAlignment.middle,
                         child: Padding(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: AppSpacing.xl,
+                            horizontal: AppSpacing.xxxxl,
                             vertical: AppSpacing.lg,
                           ),
                           child: Text(
                             'Remove NGO',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                             style: AppText.formDescription.copyWith(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
@@ -780,6 +787,8 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
                             ),
                             child: Text(
                               name,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
                               style: AppText.fieldLabel.copyWith(
                                 fontSize: 12,
                                 color: AppColors.textSecondary,
@@ -787,7 +796,6 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
                                     ? TextDecoration.lineThrough
                                     : TextDecoration.none,
                               ),
-                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ),
@@ -796,10 +804,12 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
                           verticalAlignment: TableCellVerticalAlignment.middle,
                           child: Padding(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: AppSpacing.xl,
+                              horizontal: AppSpacing.xxl,
                             ),
                             child: Text(
                               branchName,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
                               style: AppText.fieldLabel.copyWith(
                                 fontSize: 12,
                                 color: AppColors.textSecondary,
@@ -807,7 +817,6 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
                                     ? TextDecoration.lineThrough
                                     : TextDecoration.none,
                               ),
-                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ),
@@ -816,10 +825,12 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
                           verticalAlignment: TableCellVerticalAlignment.middle,
                           child: Padding(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: AppSpacing.xxxl,
+                              horizontal: AppSpacing.xxxxl,
                             ),
                             child: Text(
                               coverage,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
                               style: AppText.fieldLabel.copyWith(
                                 fontSize: 12,
                                 color: AppColors.textSecondary,
@@ -827,7 +838,6 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
                                     ? TextDecoration.lineThrough
                                     : TextDecoration.none,
                               ),
-                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ),
@@ -836,11 +846,12 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
                           verticalAlignment: TableCellVerticalAlignment.middle,
                           child: Padding(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: AppSpacing.xl,
-                              vertical: AppSpacing.lg,
+                              horizontal: AppSpacing.xxxxl,
                             ),
                             child: Text(
                               regNumber,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
                               style: AppText.fieldLabel.copyWith(
                                 fontSize: 12,
                                 color: AppColors.textSecondary,
@@ -848,7 +859,6 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
                                     ? TextDecoration.lineThrough
                                     : TextDecoration.none,
                               ),
-                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ),
@@ -858,10 +868,11 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
                           child: Padding(
                             padding: const EdgeInsets.symmetric(
                               horizontal: AppSpacing.xl,
-                              vertical: AppSpacing.lg,
                             ),
                             child: Text(
                               isApproved ? 'Approved' : 'Not Approved',
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
                               style: AppText.fieldLabel.copyWith(
                                 fontSize: 12,
                                 color: AppColors.textSecondary,
@@ -869,7 +880,6 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
                                     ? TextDecoration.lineThrough
                                     : TextDecoration.none,
                               ),
-                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ),
@@ -879,7 +889,6 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
                           child: Padding(
                             padding: const EdgeInsets.symmetric(
                               horizontal: AppSpacing.xl,
-                              vertical: AppSpacing.lg,
                             ),
                             child: IconButton(
                               padding: EdgeInsets.zero,

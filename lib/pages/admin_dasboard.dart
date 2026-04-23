@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -19,6 +20,7 @@ class AdminDashboard extends ConsumerStatefulWidget {
 
 class _AdminDashboardState extends ConsumerState<AdminDashboard> {
   FirebaseFirestore? _ngoFirestore;
+  StreamSubscription? ngoSubscription;
 
   // life-line-ngo project credentials
   static const FirebaseOptions _ngoFirebaseOptions = FirebaseOptions(
@@ -30,6 +32,12 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
     authDomain: 'life-line-ngo.firebaseapp.com',
     storageBucket: 'life-line-ngo.firebasestorage.app',
   );
+
+  @override
+  void dispose() {
+    ngoSubscription?.cancel();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -51,7 +59,7 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
       );
       _ngoFirestore = FirebaseFirestore.instanceFor(app: secondaryApp);
 
-      await _checkNgoRegistration();
+      _checkNgoRegistration();
     } catch (e) {
       if (mounted) {
         ref.read(adminPageProvider.notifier).setLoading(false);
@@ -68,48 +76,42 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
     }
   }
 
-  Future<void> _checkNgoRegistration() async {
+  void _checkNgoRegistration() {
     if (_ngoFirestore == null) return;
 
-    try {
-      final snapshot = await _ngoFirestore!
-          .collection('ngo-info-database')
-          .get();
-      if (mounted) {
-        ref.read(adminPageProvider.notifier).setLoading(false);
-        if (snapshot.docs.isNotEmpty) {
-          for (var doc in snapshot.docs) {
-            final data = doc.data();
-            final isApproved = data['approved'] ?? false;
+    ngoSubscription = _ngoFirestore!
+        .collection('ngo-info-database')
+        .where('approved', isEqualTo: false) // 🔥 optimization
+        .snapshots()
+        .listen((snapshot) {
+          if (!mounted) return;
 
-            // Only add NGOs that are NOT approved (pending requests)
-            if (!isApproved && mounted) {
-              ref.read(adminPageProvider.notifier).addNgoRequest({
-                'docId': doc.id,
-                'name': data['ngoName'] ?? 'Unknown NGO',
-                'logo': data['ngoLogo'] ?? '',
-                'directorName': data['directorName'] ?? '',
-                'projectManager': data['projectManager'] ?? '',
-                'registrationNumber': data['registrationNumber'] ?? '',
-                'selectedProgram': data['selectedProgram'] ?? '',
-                'phoneNumber': data['phone'] ?? '',
-                'email': data['email'] ?? '',
-                'address': data['address'] ?? '',
-                'geographicalCoverage': data['geographicalCoverage'] ?? '',
-                'pastExperience': data['pastExperience'] ?? '',
-                'documentUrl': data['documentUrl'] ?? '',
-                'approved': isApproved,
-                'branchName': data['branchName'] ?? '',
-              });
-            }
+          final requests = snapshot.docs.map((doc) {
+            final data = doc.data();
+
+            return {
+              'docId': doc.id,
+              'name': data['ngoName'] ?? 'Unknown NGO',
+              'logo': data['ngoLogo'] ?? '',
+              'directorName': data['directorName'] ?? '',
+              'projectManager': data['projectManager'] ?? '',
+              'registrationNumber': data['registrationNumber'] ?? '',
+              'selectedProgram': data['selectedProgram'] ?? '',
+              'phoneNumber': data['phone'] ?? '',
+              'email': data['email'] ?? '',
+              'address': data['address'] ?? '',
+              'geographicalCoverage': data['geographicalCoverage'] ?? '',
+              'pastExperience': data['pastExperience'] ?? '',
+              'documentUrl': data['documentUrl'] ?? '',
+              'approved': false,
+              'branchName': data['branchName'] ?? '',
+            };
+          }).toList();
+          if (mounted) {
+            ref.read(adminPageProvider.notifier).setNgoRequests(requests);
+            ref.read(adminPageProvider.notifier).setLoading(false);
           }
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ref.read(adminPageProvider.notifier).setLoading(false);
-      }
-    }
+        });
   }
 
   Future<void> _handleNgoAction(
@@ -125,9 +127,6 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
             .collection('ngo-info-database')
             .doc(ngo['docId'])
             .update({'approved': true});
-        if (mounted) {
-          ref.invalidate(adminPageProvider);
-        }
       } else {
         await _ngoFirestore!
             .collection('ngo-info-database')
@@ -136,11 +135,6 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
       }
 
       if (mounted) {
-        ref
-            .read(adminPageProvider)
-            .ngoRequests
-            .removeWhere((item) => item['docId'] == ngo['docId']);
-
         if (context.mounted) {
           Navigator.of(context).pop();
           ScaffoldMessenger.of(context).showSnackBar(
@@ -498,10 +492,12 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
             const SizedBox(height: AppSpacing.lg),
             if (isLoading)
               const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(AppSpacing.xxl),
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
                   child: CircularProgressIndicator(
-                    color: AppColors.primaryMaroon,
+                    color: AppColors.surfaceLight,
+                    strokeWidth: 2,
                   ),
                 ),
               )
@@ -553,26 +549,34 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
                         ),
                         const SizedBox(width: AppSpacing.lg),
                         Expanded(
-                          child: Text(ngoName, style: AppText.fieldLabel),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.warning.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
+                          flex: 2,
                           child: Text(
-                            'Pending',
-                            style: AppText.small.copyWith(
-                              color: AppColors.warning,
-                              fontWeight: FontWeight.w600,
+                            ngoName,
+                            style: AppText.fieldLabel,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.sm),
+                        Flexible(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.warning.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              'Pending',
+                              style: AppText.small.copyWith(
+                                color: AppColors.warning,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
                         ),
-                        const SizedBox(width: AppSpacing.md),
+                        const SizedBox(width: AppSpacing.sm),
                         Builder(
                           builder: (builderContext) {
                             return MouseRegion(
@@ -583,23 +587,11 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
                                 child: const Icon(
                                   Icons.read_more,
                                   color: AppColors.warning,
-                                  size: 40,
+                                  size: 32,
                                 ),
                               ),
                             );
                           },
-                        ),
-                        const SizedBox(width: AppSpacing.md),
-                        MouseRegion(
-                          cursor: SystemMouseCursors.click,
-                          child: GestureDetector(
-                            onTap: () {},
-                            child: const Icon(
-                              Icons.close,
-                              color: AppColors.warning,
-                              size: 20,
-                            ),
-                          ),
                         ),
                       ],
                     ),
@@ -731,10 +723,13 @@ class _ActionCard extends StatelessWidget {
             children: [
               Icon(icon, color: AppColors.primaryMaroon, size: 24),
               const SizedBox(width: AppSpacing.md),
-              Text(
-                title,
-                style: AppText.fieldLabel.copyWith(
-                  color: AppColors.darkCharcoal,
+              Flexible(
+                child: Text(
+                  title,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppText.fieldLabel.copyWith(
+                    color: AppColors.darkCharcoal,
+                  ),
                 ),
               ),
             ],

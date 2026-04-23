@@ -5,7 +5,6 @@ import 'package:life_line_admin/providers/security_question_provider.dart';
 import 'package:life_line_admin/styles/styles.dart';
 import 'package:life_line_admin/pages/admin_authentication.dart';
 import 'package:life_line_admin/widgets/global/change_password.dart';
-import 'package:life_line_admin/widgets/global/loading_indicator.dart';
 
 class SecurityQuestion extends ConsumerStatefulWidget {
   const SecurityQuestion({super.key});
@@ -186,7 +185,14 @@ class _SecurityQuestionState extends ConsumerState<SecurityQuestion> {
                     onPressed: isLoading ? null : _handleRestorePassword,
                     style: AppButtons.submit,
                     child: isLoading
-                        ? const LoadingIndicator()
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              color: AppColors.surfaceLight,
+                              strokeWidth: 2,
+                            ),
+                          )
                         : const Text('Restore Password'),
                   );
                 },

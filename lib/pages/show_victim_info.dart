@@ -1,10 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:life_line_admin/providers/victim_info_provider.dart';
 import 'package:life_line_admin/styles/styles.dart';
-import 'package:life_line_admin/widgets/global/loading_indicator.dart';
 import 'package:life_line_admin/widgets/nav_bar.dart';
 import 'package:life_line_admin/pages/admin_dasboard.dart';
 
@@ -18,6 +19,7 @@ class ShowVictimInfo extends ConsumerStatefulWidget {
 class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
   final TextEditingController _searchController = TextEditingController();
   FirebaseFirestore? _victimFirestore;
+  StreamSubscription? victimSubscription;
 
   // life-line-victim database credentials
   static const FirebaseOptions _victimFirebaseOptions = FirebaseOptions(
@@ -28,6 +30,13 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
     authDomain: 'life-line-victim-27aaa.firebaseapp.com',
     storageBucket: 'life-line-victim-27aaa.firebasestorage.app',
   );
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    victimSubscription?.cancel();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -43,12 +52,12 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
     }
 
     try {
-      final victimApp = await Firebase.initializeApp(
+      final secondaryApp = await Firebase.initializeApp(
         name: 'life-line-victim',
         options: _victimFirebaseOptions,
       );
-      _victimFirestore = FirebaseFirestore.instanceFor(app: victimApp);
-      await _searchVictims();
+      _victimFirestore = FirebaseFirestore.instanceFor(app: secondaryApp);
+      _listenToVictims();
     } catch (e) {
       if (mounted) {
         ref.read(victimPageProvider.notifier).setLoading(false);
@@ -62,65 +71,43 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
     }
   }
 
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _searchVictims() async {
+  void _listenToVictims() {
     if (_victimFirestore == null) return;
 
-    if (mounted && ref.read(victimPageProvider).isLoading == false) {
+    if (mounted) {
       ref.read(victimPageProvider.notifier).setLoading(true);
     }
 
-    try {
-      final querySnapshot = await _victimFirestore!.collection('users').get();
-
-      if (mounted) {
-        final allVictims = querySnapshot.docs.map((doc) => doc.data()).toList();
-        final searchTerm = _searchController.text;
-
-        if (searchTerm.isEmpty && mounted) {
-          ref.read(victimPageProvider.notifier).addVictims(allVictims);
-          ref.read(victimPageProvider.notifier).setLoading(false);
-          return;
-        }
-
-        var filteredVictims = allVictims.where((victim) {
-          final name = (victim['name'] ?? '').toString();
-          return name.contains(searchTerm);
-        }).toList();
-
-        if (filteredVictims.isEmpty) {
-          if (mounted) {
-            ref.read(victimPageProvider.notifier).setLoading(false);
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('No Victims found'),
-                backgroundColor: AppColors.error,
-              ),
-            );
-            return;
-          }
-        }
-        if (mounted) {
-          ref.read(victimPageProvider.notifier).addVictims(filteredVictims);
-          ref.read(victimPageProvider.notifier).setLoading(false);
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ref.read(victimPageProvider.notifier).setLoading(false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Error searching data, please retry'),
-            backgroundColor: AppColors.error,
-          ),
-        );
-      }
+    if (victimSubscription != null) {
+      victimSubscription!.cancel();
     }
+
+    victimSubscription = _victimFirestore!
+        .collection('users')
+        .snapshots()
+        .listen((snapshot) {
+          if (!mounted) return;
+
+          final allVictims = snapshot.docs.map((doc) => doc.data()).toList();
+
+          final searchTerm = _searchController.text;
+
+          List<Map<String, dynamic>> finalList;
+
+          if (searchTerm.isEmpty) {
+            finalList = allVictims;
+          } else {
+            finalList = allVictims.where((victim) {
+              final name = (victim['name'] ?? '').toString();
+              return name.contains(searchTerm);
+            }).toList();
+          }
+
+          if (mounted) {
+            ref.read(victimPageProvider.notifier).setVictims(finalList);
+            ref.read(victimPageProvider.notifier).setLoading(false);
+          }
+        });
   }
 
   Future<void> _removeUser(String email) async {
@@ -148,7 +135,6 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
           ),
         );
       }
-      _searchVictims();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -186,7 +172,6 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
           ),
         );
       }
-      _searchVictims();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -224,7 +209,6 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
           ),
         );
       }
-      _searchVictims();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -321,20 +305,23 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
               color: AppColors.primaryMaroon,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: GestureDetector(
-              onTap: () {
-                if (mounted) {
-                  Navigator.of(context).pushReplacement(
-                    MaterialPageRoute(
-                      builder: (context) => const AdminDashboard(),
-                    ),
-                  );
-                }
-              },
-              child: const Icon(
-                Icons.arrow_back,
-                color: Colors.white,
-                size: 20,
+            child: MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                onTap: () {
+                  if (mounted) {
+                    Navigator.of(context).pushReplacement(
+                      MaterialPageRoute(
+                        builder: (context) => const AdminDashboard(),
+                      ),
+                    );
+                  }
+                },
+                child: const Icon(
+                  Icons.arrow_back,
+                  color: Colors.white,
+                  size: 20,
+                ),
               ),
             ),
           ),
@@ -429,7 +416,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                             victimPageProvider.select((v) => v.isLoading),
                           );
                           return ElevatedButton(
-                            onPressed: isLoading ? null : _searchVictims,
+                            onPressed: isLoading ? null : _listenToVictims,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.primaryMaroon,
                               foregroundColor: Colors.white,
@@ -503,7 +490,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                             victimPageProvider.select((v) => v.isLoading),
                           );
                           return ElevatedButton(
-                            onPressed: isLoading ? null : _searchVictims,
+                            onPressed: isLoading ? null : _listenToVictims,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.primaryMaroon,
                               foregroundColor: Colors.white,
@@ -548,7 +535,14 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
     final victims = ref.watch(victimPageProvider.select((v) => v.victims));
 
     if (isLoading) {
-      return const LoadingIndicator();
+      return const SizedBox(
+        width: 20,
+        height: 20,
+        child: CircularProgressIndicator(
+          color: AppColors.surfaceLight,
+          strokeWidth: 2,
+        ),
+      );
     }
 
     if (victims.isEmpty) {
@@ -610,8 +604,8 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                   0: FlexColumnWidth(3),
                   1: FlexColumnWidth(3),
                   2: FlexColumnWidth(2),
-                  3: FlexColumnWidth(1),
-                  4: FlexColumnWidth(1),
+                  3: FlexColumnWidth(1.2),
+                  4: FlexColumnWidth(1.5),
                 },
                 children: [
                   // Header Row
@@ -684,7 +678,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                         verticalAlignment: TableCellVerticalAlignment.middle,
                         child: Padding(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: AppSpacing.xl,
+                            horizontal: AppSpacing.md,
                             vertical: AppSpacing.lg,
                           ),
                           child: Text(
@@ -702,7 +696,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                         verticalAlignment: TableCellVerticalAlignment.middle,
                         child: Padding(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: AppSpacing.xl,
+                            horizontal: AppSpacing.md,
                             vertical: AppSpacing.lg,
                           ),
                           child: Text(
@@ -800,7 +794,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                           verticalAlignment: TableCellVerticalAlignment.middle,
                           child: Padding(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: AppSpacing.xl,
+                              horizontal: AppSpacing.md,
                               vertical: AppSpacing.lg,
                             ),
                             child: IconButton(
@@ -822,7 +816,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                           verticalAlignment: TableCellVerticalAlignment.middle,
                           child: Padding(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: AppSpacing.xl,
+                              horizontal: AppSpacing.md,
                               vertical: AppSpacing.lg,
                             ),
                             child: IconButton(
