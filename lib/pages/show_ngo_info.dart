@@ -61,8 +61,8 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
       if (mounted) {
         ref.read(ngoPageProvider.notifier).setLoading(false);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('An unexpected error occurred please refresh page'),
+          SnackBar(
+            content: Text('Error: $e'),
             backgroundColor: AppColors.error,
           ),
         );
@@ -76,8 +76,6 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
     if (mounted) {
       ref.read(ngoPageProvider.notifier).setLoading(true);
     }
-
-    ngoSubscription!.cancel();
 
     ngoSubscription = _ngoFirestore!
         .collection('ngo-info-database')
@@ -96,7 +94,7 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
           } else {
             finalList = allNgos.where((ngo) {
               final name = (ngo['ngoName'] ?? '').toString();
-              return name.contains(searchTerm);
+              return name.toLowerCase().contains(searchTerm.toLowerCase());
             }).toList();
           }
           if (mounted) {

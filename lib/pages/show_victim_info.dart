@@ -62,8 +62,10 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
       if (mounted) {
         ref.read(victimPageProvider.notifier).setLoading(false);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('An unexpected error occurred please refresh page'),
+          SnackBar(
+            content: Text(
+              'An unexpected error occurred please refresh page $e',
+            ),
             backgroundColor: AppColors.error,
           ),
         );
@@ -77,8 +79,6 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
     if (mounted) {
       ref.read(victimPageProvider.notifier).setLoading(true);
     }
-
-    victimSubscription!.cancel();
 
     victimSubscription = _victimFirestore!
         .collection('users')
@@ -97,7 +97,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
           } else {
             finalList = allVictims.where((victim) {
               final name = (victim['name'] ?? '').toString();
-              return name.contains(searchTerm);
+              return name.toLowerCase().contains(searchTerm.toLowerCase());
             }).toList();
           }
 

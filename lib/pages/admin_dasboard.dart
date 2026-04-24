@@ -81,9 +81,6 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
   void _checkNgoRegistration() {
     if (_ngoFirestore == null) return;
 
-    // Cancel any existing settings subscription
-    settingsSubscription?.cancel();
-
     // Listen to settings collection for auto approval changes
     settingsSubscription = _ngoFirestore!
         .collection('settings')

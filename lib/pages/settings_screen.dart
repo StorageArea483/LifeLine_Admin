@@ -450,7 +450,52 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         if (mounted) {
                           ref
                               .read(settingsPageProvider.notifier)
-                              .setSystemMaintenance(!systemMaintenance);
+                              .setLoading(true);
+                          try {
+                            final querySnapshot = await _firestore
+                                .collection('settings')
+                                .get();
+
+                            if (querySnapshot.docs.isNotEmpty) {
+                              // Document exists, update it
+                              await querySnapshot.docs.first.reference.update({
+                                'maintenance': !systemMaintenance,
+                              });
+                            } else {
+                              if (mounted) {
+                                // ignore: use_build_context_synchronously
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Failed to process your request',
+                                    ),
+                                    backgroundColor: AppColors.error,
+                                  ),
+                                );
+                              }
+                            }
+                            if (mounted) {
+                              ref
+                                  .read(settingsPageProvider.notifier)
+                                  .setSystemMaintenance(!systemMaintenance);
+                            }
+                          } catch (e) {
+                            if (mounted) {
+                              // ignore: use_build_context_synchronously
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('An unexpected error occurred'),
+                                  backgroundColor: AppColors.error,
+                                ),
+                              );
+                            }
+                          } finally {
+                            if (mounted) {
+                              ref
+                                  .read(settingsPageProvider.notifier)
+                                  .setLoading(false);
+                            }
+                          }
                         }
                       },
                       isMobile,
@@ -678,12 +723,91 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               }
             }
           } else if (mounted && index == 1) {
-            ref.read(settingsPageProvider.notifier).setSosSystemEnabled(!value);
+            ref.read(settingsPageProvider.notifier).setLoading(true);
+            try {
+              final querySnapshot = await _firestore
+                  .collection('settings')
+                  .get();
+
+              if (querySnapshot.docs.isNotEmpty) {
+                // Document exists, update it
+                await querySnapshot.docs.first.reference.update({
+                  'sos disabled': !value,
+                });
+              } else {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Failed to process your request'),
+                      backgroundColor: AppColors.error,
+                    ),
+                  );
+                }
+              }
+
+              if (mounted) {
+                ref
+                    .read(settingsPageProvider.notifier)
+                    .setSosSystemEnabled(!value);
+              }
+            } catch (e) {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('An unexpected error occurred'),
+                    backgroundColor: AppColors.error,
+                  ),
+                );
+              }
+            } finally {
+              if (mounted) {
+                ref.read(settingsPageProvider.notifier).setLoading(false);
+              }
+            }
+            // End SOS system toggle
           } else {
             if (mounted) {
-              ref
-                  .read(settingsPageProvider.notifier)
-                  .setOperatorsEnabled(!value);
+              ref.read(settingsPageProvider.notifier).setLoading(true);
+              try {
+                final querySnapshot = await _firestore
+                    .collection('settings')
+                    .get();
+
+                if (querySnapshot.docs.isNotEmpty) {
+                  // Document exists, update it
+                  await querySnapshot.docs.first.reference.update({
+                    'operator access': !value,
+                  });
+                } else {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Failed to process your request'),
+                        backgroundColor: AppColors.error,
+                      ),
+                    );
+                  }
+                }
+
+                if (mounted) {
+                  ref
+                      .read(settingsPageProvider.notifier)
+                      .setOperatorsEnabled(!value);
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('An unexpected error occurred'),
+                      backgroundColor: AppColors.error,
+                    ),
+                  );
+                }
+              } finally {
+                if (mounted) {
+                  ref.read(settingsPageProvider.notifier).setLoading(false);
+                }
+              }
             }
           }
         },
