@@ -78,9 +78,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
       ref.read(victimPageProvider.notifier).setLoading(true);
     }
 
-    if (victimSubscription != null) {
-      victimSubscription!.cancel();
-    }
+    victimSubscription!.cancel();
 
     victimSubscription = _victimFirestore!
         .collection('users')
@@ -209,53 +207,83 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
       backgroundColor: AppColors.softBackground,
       drawer: buildDrawer(context),
       body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final isMobile = constraints.maxWidth < 600;
-            final isTablet =
-                constraints.maxWidth >= 600 && constraints.maxWidth < 1024;
+        child: Stack(
+          children: [
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final isMobile = constraints.maxWidth < 600;
+                final isTablet =
+                    constraints.maxWidth >= 600 && constraints.maxWidth < 1024;
 
-            return Column(
-              children: [
-                Container(
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceLight,
-                    border: Border.all(color: AppColors.borderColor, width: 1),
-                  ),
-                  padding: EdgeInsets.symmetric(
-                    horizontal: isMobile ? AppSpacing.lg : AppSpacing.xxl,
-                    vertical: isMobile ? AppSpacing.md : AppSpacing.lg,
-                  ),
-                  child: const NavBar(),
-                ),
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: EdgeInsets.all(
-                      isMobile ? AppSpacing.lg : AppSpacing.xxl,
+                return Column(
+                  children: [
+                    Container(
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceLight,
+                        border: Border.all(
+                          color: AppColors.borderColor,
+                          width: 1,
+                        ),
+                      ),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: isMobile ? AppSpacing.lg : AppSpacing.xxl,
+                        vertical: isMobile ? AppSpacing.md : AppSpacing.lg,
+                      ),
+                      child: const NavBar(),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildHeader(isMobile),
-                        SizedBox(
-                          height: isMobile ? AppSpacing.lg : AppSpacing.xxl,
+                    Expanded(
+                      child: SingleChildScrollView(
+                        padding: EdgeInsets.all(
+                          isMobile ? AppSpacing.lg : AppSpacing.xxl,
                         ),
-                        _buildSearchBar(isMobile),
-                        SizedBox(
-                          height: isMobile ? AppSpacing.lg : AppSpacing.xxl,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildHeader(isMobile),
+                            SizedBox(
+                              height: isMobile ? AppSpacing.lg : AppSpacing.xxl,
+                            ),
+                            _buildSearchBar(isMobile),
+                            SizedBox(
+                              height: isMobile ? AppSpacing.lg : AppSpacing.xxl,
+                            ),
+                            Consumer(
+                              builder: (context, ref, child) {
+                                return _buildContent(isMobile, isTablet, ref);
+                              },
+                            ),
+                          ],
                         ),
-                        Consumer(
-                          builder: (context, ref, child) {
-                            return _buildContent(isMobile, isTablet, ref);
-                          },
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+            Consumer(
+              builder: (context, ref, child) {
+                final isLoading = ref.watch(
+                  victimPageProvider.select((v) => v.isLoading),
+                );
+                if (!isLoading) return const SizedBox.shrink();
+                return IgnorePointer(
+                  child: Container(
+                    color: Colors.black.withValues(alpha: 0.5),
+                    child: const Center(
+                      child: SizedBox(
+                        width: 60,
+                        height: 60,
+                        child: CircularProgressIndicator(
+                          color: AppColors.primaryMaroon,
+                          strokeWidth: 4,
                         ),
-                      ],
+                      ),
                     ),
                   ),
-                ),
-              ],
-            );
-          },
+                );
+              },
+            ),
+          ],
         ),
       ),
     );
@@ -512,22 +540,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
 
   Widget _buildContent(bool isMobile, bool isTablet, WidgetRef ref) {
     if (!mounted) return const SizedBox.shrink();
-    final isLoading = ref.watch(victimPageProvider.select((v) => v.isLoading));
-    if (!mounted) return const SizedBox.shrink();
     final victims = ref.watch(victimPageProvider.select((v) => v.victims));
-
-    if (isLoading) {
-      return const Center(
-        child: SizedBox(
-          width: 40,
-          height: 40,
-          child: CircularProgressIndicator(
-            color: AppColors.primaryMaroon,
-            strokeWidth: 4,
-          ),
-        ),
-      );
-    }
 
     if (victims.isEmpty) {
       return Center(

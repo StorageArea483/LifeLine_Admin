@@ -87,6 +87,7 @@ class _NavBarState extends State<NavBar> {
                           MouseRegion(
                             cursor: SystemMouseCursors.click,
                             child: GestureDetector(
+                              onTap: () {},
                               child: const Text(
                                 'SOS Logs',
                                 style: AppText.base,

@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:life_line_admin/providers/settings_page_provider.dart';
 import 'package:life_line_admin/styles/styles.dart';
@@ -16,7 +17,10 @@ class SettingsScreen extends ConsumerStatefulWidget {
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   final _formKey = GlobalKey<FormState>();
-  FirebaseFirestore? _firestore;
+  FirebaseFirestore get _firestore {
+    return FirebaseFirestore.instanceFor(app: Firebase.app('life-line-ngo'));
+  }
+
   // Controllers for form fields (UI only)
   final TextEditingController _currentPasswordController =
       TextEditingController();
@@ -40,45 +44,75 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       backgroundColor: AppColors.softBackground,
       drawer: buildDrawer(context),
       body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final isMobile = constraints.maxWidth < 600;
-            final isTablet =
-                constraints.maxWidth >= 600 && constraints.maxWidth < 1024;
+        child: Stack(
+          children: [
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final isMobile = constraints.maxWidth < 600;
+                final isTablet =
+                    constraints.maxWidth >= 600 && constraints.maxWidth < 1024;
 
-            return Column(
-              children: [
-                Container(
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceLight,
-                    border: Border.all(color: AppColors.borderColor, width: 1),
-                  ),
-                  padding: EdgeInsets.symmetric(
-                    horizontal: isMobile ? AppSpacing.lg : AppSpacing.xxl,
-                    vertical: isMobile ? AppSpacing.md : AppSpacing.lg,
-                  ),
-                  child: const NavBar(),
-                ),
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: EdgeInsets.all(
-                      isMobile ? AppSpacing.lg : AppSpacing.xxl,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildHeader(isMobile),
-                        SizedBox(
-                          height: isMobile ? AppSpacing.lg : AppSpacing.xxl,
+                return Column(
+                  children: [
+                    Container(
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceLight,
+                        border: Border.all(
+                          color: AppColors.borderColor,
+                          width: 1,
                         ),
-                        _buildSettingsSections(isMobile, isTablet),
-                      ],
+                      ),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: isMobile ? AppSpacing.lg : AppSpacing.xxl,
+                        vertical: isMobile ? AppSpacing.md : AppSpacing.lg,
+                      ),
+                      child: const NavBar(),
+                    ),
+                    Expanded(
+                      child: SingleChildScrollView(
+                        padding: EdgeInsets.all(
+                          isMobile ? AppSpacing.lg : AppSpacing.xxl,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildHeader(isMobile),
+                            SizedBox(
+                              height: isMobile ? AppSpacing.lg : AppSpacing.xxl,
+                            ),
+                            _buildSettingsSections(isMobile, isTablet),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+            Consumer(
+              builder: (context, ref, child) {
+                final isLoading = ref.watch(
+                  settingsPageProvider.select((v) => v.isLoading),
+                );
+                if (!isLoading) return const SizedBox.shrink();
+                return IgnorePointer(
+                  child: Container(
+                    color: Colors.black.withValues(alpha: 0.5),
+                    child: const Center(
+                      child: SizedBox(
+                        width: 60,
+                        height: 60,
+                        child: CircularProgressIndicator(
+                          color: AppColors.primaryMaroon,
+                          strokeWidth: 4,
+                        ),
+                      ),
                     ),
                   ),
-                ),
-              ],
-            );
-          },
+                );
+              },
+            ),
+          ],
         ),
       ),
     );
@@ -183,66 +217,87 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       title: 'Account & Security',
       image: 'assets/images/account_security.webp',
       isMobile: isMobile,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          _buildTextField(
-            controller: _newPasswordController,
-            label: 'New Password',
-            isPassword: true,
-            isMobile: isMobile,
-          ),
-          const SizedBox(height: AppSpacing.md),
-          _buildTextField(
-            controller: _confirmPasswordController,
-            label: 'Confirm New Password',
-            isPassword: true,
-            isMobile: isMobile,
-          ),
-          const SizedBox(height: AppSpacing.md),
-          _buildActionButton('Update Password', AppColors.primary, () async {
-            try {
-              final querySnapshot = await _firestore
-                  ?.collection('admin-info-database')
-                  .get();
-              if (querySnapshot?.docs.isNotEmpty ?? false) {
-                final doc = querySnapshot!.docs.first;
-                await doc.reference.update({
-                  'Password': _newPasswordController.text,
-                });
-                if (mounted) {
-                  // ignore: use_build_context_synchronously
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Password updated successfully'),
-                      backgroundColor: AppColors.success,
-                    ),
-                  );
+      child: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            _buildTextField(
+              controller: _newPasswordController,
+              label: 'New Password',
+              isMobile: isMobile,
+            ),
+            const SizedBox(height: AppSpacing.md),
+            _buildTextField(
+              controller: _confirmPasswordController,
+              label: 'Confirm New Password',
+              isMobile: isMobile,
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'This field cannot be left empty';
                 }
-              } else {
+                if (value != _newPasswordController.text) {
+                  return 'Passwords do not match';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: AppSpacing.md),
+            _buildActionButton('Update Password', AppColors.primary, () async {
+              if (_formKey.currentState!.validate()) {
                 if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'Password was not updated, please try again',
+                  ref.read(settingsPageProvider.notifier).setLoading(true);
+                }
+                try {
+                  final querySnapshot = await FirebaseFirestore.instance
+                      .collection('admin-info-database')
+                      .get();
+                  if (querySnapshot.docs.isNotEmpty) {
+                    final doc = querySnapshot.docs.first;
+                    await doc.reference.update({
+                      'Password': _newPasswordController.text,
+                    });
+                    if (mounted) {
+                      // ignore: use_build_context_synchronously
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Password updated successfully'),
+                          backgroundColor: AppColors.success,
+                        ),
+                      );
+                    }
+                  } else {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Password was not updated, please try again',
+                          ),
+                          backgroundColor: AppColors.error,
+                        ),
+                      );
+                    }
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('An unexpected error occurred $e'),
+                        backgroundColor: AppColors.error,
                       ),
-                      backgroundColor: AppColors.error,
-                    ),
-                  );
+                    );
+                  }
+                } finally {
+                  if (mounted) {
+                    _newPasswordController.text = '';
+                    _confirmPasswordController.text = '';
+                    ref.read(settingsPageProvider.notifier).setLoading(false);
+                  }
                 }
               }
-            } catch (e) {
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('An unexpected error occurred'),
-                    backgroundColor: AppColors.error,
-                  ),
-                );
-              }
-            }
-          }, isMobile),
-        ],
+            }, isMobile),
+          ],
+        ),
       ),
     );
   }
@@ -316,8 +371,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         const SizedBox(height: 4),
                         Text(
                           sosSystemEnabled
-                              ? 'System is active'
-                              : 'System is disabled',
+                              ? 'System is disabled'
+                              : 'System is active',
                           style: AppText.small.copyWith(
                             fontSize: isMobile ? 12 : 14,
                           ),
@@ -391,7 +446,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           ? 'Exit Maintenance'
                           : 'Enter Maintenance',
                       systemMaintenance ? AppColors.success : AppColors.warning,
-                      () {
+                      () async {
                         if (mounted) {
                           ref
                               .read(settingsPageProvider.notifier)
@@ -536,41 +591,39 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Widget _buildTextField({
     required TextEditingController controller,
     required String label,
-    bool isPassword = false,
     bool isMobile = false,
     IconData? prefixIcon,
+    FormFieldValidator<String>? validator,
   }) {
-    return Form(
-      key: _formKey,
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppColors.surfaceLight,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.borderColor),
-        ),
-        child: TextFormField(
-          controller: controller,
-          obscureText: isPassword,
-          validator: (value) {
-            if (value == null || value.isEmpty) {
-              return 'This field cannot be left empty';
-            }
-            return null;
-          },
-          decoration: InputDecoration(
-            labelText: label,
-            labelStyle: TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: isMobile ? 14 : 16,
-            ),
-            prefixIcon: prefixIcon != null
-                ? Icon(prefixIcon, color: AppColors.textSecondary, size: 20)
-                : null,
-            border: InputBorder.none,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.lg,
-              vertical: AppSpacing.md,
-            ),
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surfaceLight,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.borderColor),
+      ),
+      child: TextFormField(
+        controller: controller,
+        validator:
+            validator ??
+            (value) {
+              if (value == null || value.isEmpty) {
+                return 'This field cannot be left empty';
+              }
+              return null;
+            },
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: TextStyle(
+            color: AppColors.textSecondary,
+            fontSize: isMobile ? 14 : 16,
+          ),
+          prefixIcon: prefixIcon != null
+              ? Icon(prefixIcon, color: AppColors.textSecondary, size: 20)
+              : null,
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.lg,
+            vertical: AppSpacing.md,
           ),
         ),
       ),
@@ -581,9 +634,49 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
-        onTap: () {
+        onTap: () async {
           if (mounted && index == 0) {
-            ref.read(settingsPageProvider.notifier).setAutoApprovalMode(!value);
+            ref.read(settingsPageProvider.notifier).setLoading(true);
+            try {
+              final querySnapshot = await _firestore
+                  .collection('settings')
+                  .get();
+
+              if (querySnapshot.docs.isNotEmpty) {
+                // Document exists, update it
+                await querySnapshot.docs.first.reference.update({
+                  'auto approved': !value,
+                });
+              } else {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Failed to process your request'),
+                      backgroundColor: AppColors.error,
+                    ),
+                  );
+                }
+              }
+
+              if (mounted) {
+                ref
+                    .read(settingsPageProvider.notifier)
+                    .setAutoApprovalMode(!value);
+              }
+            } catch (e) {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('An unexpected error occurred'),
+                    backgroundColor: AppColors.error,
+                  ),
+                );
+              }
+            } finally {
+              if (mounted) {
+                ref.read(settingsPageProvider.notifier).setLoading(false);
+              }
+            }
           } else if (mounted && index == 1) {
             ref.read(settingsPageProvider.notifier).setSosSystemEnabled(!value);
           } else {
@@ -623,53 +716,32 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Widget _buildActionButton(
     String label,
     Color color,
-    VoidCallback onPressed,
+    Future<void> Function() onPressed,
     bool isMobile, {
     bool isCompact = false,
   }) {
-    return Consumer(
-      builder: (context, ref, child) {
-        if (!mounted) return const SizedBox.shrink();
-        final isLoading = ref.watch(
-          settingsPageProvider.select((v) => v.isLoading),
-        );
-        return ElevatedButton(
-          onPressed: onPressed,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: color,
-            foregroundColor: AppColors.surfaceLight,
-            elevation: 0,
-            padding: EdgeInsets.symmetric(
-              horizontal: isCompact ? AppSpacing.lg : AppSpacing.xl,
-              vertical: isCompact ? AppSpacing.sm : AppSpacing.md,
-            ),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(isCompact ? 8 : 12),
-            ),
-          ),
-          child: isLoading
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: Center(
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: AppColors.white,
-                    ),
-                  ),
-                )
-              : Text(
-                  label,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppText.submitButton.copyWith(
-                    fontSize: isCompact
-                        ? (isMobile ? 12 : 14)
-                        : (isMobile ? 14 : 16),
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-        );
-      },
+    return ElevatedButton(
+      onPressed: onPressed,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: color,
+        foregroundColor: AppColors.surfaceLight,
+        elevation: 0,
+        padding: EdgeInsets.symmetric(
+          horizontal: isCompact ? AppSpacing.lg : AppSpacing.xl,
+          vertical: isCompact ? AppSpacing.sm : AppSpacing.md,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(isCompact ? 8 : 12),
+        ),
+      ),
+      child: Text(
+        label,
+        overflow: TextOverflow.ellipsis,
+        style: AppText.submitButton.copyWith(
+          fontSize: isCompact ? (isMobile ? 12 : 14) : (isMobile ? 14 : 16),
+          fontWeight: FontWeight.w600,
+        ),
+      ),
     );
   }
 }

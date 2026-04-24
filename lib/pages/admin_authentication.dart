@@ -184,8 +184,8 @@ class _AdminAuthenticationState extends ConsumerState<AdminAuthentication> {
                         suffixIcon: IconButton(
                           icon: Icon(
                             obscureTextField
-                                ? Icons.visibility_outlined
-                                : Icons.visibility_off_outlined,
+                                ? Icons.visibility_off_outlined
+                                : Icons.visibility_outlined,
                             color: AppColors.textSecondary,
                           ),
                           onPressed: () {
@@ -228,8 +228,8 @@ class _AdminAuthenticationState extends ConsumerState<AdminAuthentication> {
                         suffixIcon: IconButton(
                           icon: Icon(
                             obscurePassword
-                                ? Icons.visibility_outlined
-                                : Icons.visibility_off_outlined,
+                                ? Icons.visibility_off_outlined
+                                : Icons.visibility_outlined,
                             color: AppColors.textSecondary,
                           ),
                           onPressed: () {

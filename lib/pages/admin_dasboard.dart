@@ -21,6 +21,7 @@ class AdminDashboard extends ConsumerStatefulWidget {
 class _AdminDashboardState extends ConsumerState<AdminDashboard> {
   FirebaseFirestore? _ngoFirestore;
   StreamSubscription? ngoSubscription;
+  StreamSubscription? settingsSubscription;
 
   // life-line-ngo project credentials
   static const FirebaseOptions _ngoFirebaseOptions = FirebaseOptions(
@@ -36,6 +37,7 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
   @override
   void dispose() {
     ngoSubscription?.cancel();
+    settingsSubscription?.cancel();
     super.dispose();
   }
 
@@ -79,38 +81,69 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
   void _checkNgoRegistration() {
     if (_ngoFirestore == null) return;
 
-    ngoSubscription = _ngoFirestore!
-        .collection('ngo-info-database')
-        .where('approved', isEqualTo: false) // 🔥 optimization
+    // Cancel any existing settings subscription
+    settingsSubscription?.cancel();
+
+    // Listen to settings collection for auto approval changes
+    settingsSubscription = _ngoFirestore!
+        .collection('settings')
         .snapshots()
-        .listen((snapshot) {
+        .listen((settingsSnapshot) {
           if (!mounted) return;
 
-          final requests = snapshot.docs.map((doc) {
-            final data = doc.data();
+          bool autoApprovedValue = false;
 
-            return {
-              'docId': doc.id,
-              'name': data['ngoName'] ?? 'Unknown NGO',
-              'logo': data['ngoLogo'] ?? '',
-              'directorName': data['directorName'] ?? '',
-              'projectManager': data['projectManager'] ?? '',
-              'registrationNumber': data['registrationNumber'] ?? '',
-              'selectedProgram': data['selectedProgram'] ?? '',
-              'phoneNumber': data['phone'] ?? '',
-              'email': data['email'] ?? '',
-              'address': data['address'] ?? '',
-              'geographicalCoverage': data['geographicalCoverage'] ?? '',
-              'pastExperience': data['pastExperience'] ?? '',
-              'documentUrl': data['documentUrl'] ?? '',
-              'approved': false,
-              'branchName': data['branchName'] ?? '',
-            };
-          }).toList();
-          if (mounted) {
-            ref.read(adminPageProvider.notifier).setNgoRequests(requests);
-            ref.read(adminPageProvider.notifier).setLoading(false);
+          if (settingsSnapshot.docs.isNotEmpty) {
+            final settingsData = settingsSnapshot.docs.first.data();
+            autoApprovedValue = settingsData['auto approved'];
           }
+
+          // Cancel previous NGO subscription before creating new one
+          ngoSubscription?.cancel();
+
+          // If auto approval is ON, clear pending requests immediately
+          if (autoApprovedValue) {
+            if (mounted) {
+              ref.read(adminPageProvider.notifier).setNgoRequests([]);
+              ref.read(adminPageProvider.notifier).setLoading(false);
+            }
+            return;
+          }
+
+          // If auto approval is OFF, listen to unapproved NGOs
+          ngoSubscription = _ngoFirestore!
+              .collection('ngo-info-database')
+              .where('approved', isEqualTo: false)
+              .snapshots()
+              .listen((snapshot) {
+                if (!mounted) return;
+
+                final requests = snapshot.docs.map((doc) {
+                  final data = doc.data();
+                  return {
+                    'docId': doc.id,
+                    'name': data['ngoName'] ?? 'Unknown NGO',
+                    'logo': data['ngoLogo'] ?? '',
+                    'directorName': data['directorName'] ?? '',
+                    'projectManager': data['projectManager'] ?? '',
+                    'registrationNumber': data['registrationNumber'] ?? '',
+                    'selectedProgram': data['selectedProgram'] ?? '',
+                    'phoneNumber': data['phone'] ?? '',
+                    'email': data['email'] ?? '',
+                    'address': data['address'] ?? '',
+                    'geographicalCoverage': data['geographicalCoverage'] ?? '',
+                    'pastExperience': data['pastExperience'] ?? '',
+                    'documentUrl': data['documentUrl'] ?? '',
+                    'approved': false,
+                    'branchName': data['branchName'] ?? '',
+                  };
+                }).toList();
+
+                if (mounted) {
+                  ref.read(adminPageProvider.notifier).setNgoRequests(requests);
+                  ref.read(adminPageProvider.notifier).setLoading(false);
+                }
+              });
         });
   }
 
@@ -375,6 +408,29 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
                 );
               },
             ),
+            Consumer(
+              builder: (context, ref, child) {
+                final isLoading = ref.watch(
+                  adminPageProvider.select((v) => v.isLoading),
+                );
+                if (!isLoading) return const SizedBox.shrink();
+                return IgnorePointer(
+                  child: Container(
+                    color: Colors.black.withValues(alpha: 0.5),
+                    child: const Center(
+                      child: SizedBox(
+                        width: 60,
+                        height: 60,
+                        child: CircularProgressIndicator(
+                          color: AppColors.primaryMaroon,
+                          strokeWidth: 4,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
           ],
         ),
       ),
@@ -472,10 +528,6 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
     return Consumer(
       builder: (context, ref, child) {
         if (!mounted) return const SizedBox.shrink();
-        final isLoading = ref.watch(
-          adminPageProvider.select((v) => v.isLoading),
-        );
-        if (!mounted) return const SizedBox.shrink();
         final ngoRequests = ref.watch(
           adminPageProvider.select((v) => v.ngoRequests),
         );
@@ -490,18 +542,7 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
               ),
             ),
             const SizedBox(height: AppSpacing.lg),
-            if (isLoading)
-              const Center(
-                child: SizedBox(
-                  width: 40,
-                  height: 40,
-                  child: CircularProgressIndicator(
-                    color: AppColors.primaryMaroon,
-                    strokeWidth: 4,
-                  ),
-                ),
-              )
-            else if (ngoRequests.isEmpty)
+            if (ngoRequests.isEmpty)
               Container(
                 padding: const EdgeInsets.all(AppSpacing.xl),
                 decoration: SimpleDecoration.card(),
