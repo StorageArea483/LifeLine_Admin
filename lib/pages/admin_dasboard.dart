@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:life_line_admin/pages/admin_authentication.dart';
 import 'package:life_line_admin/providers/admin_page_provider.dart';
@@ -20,6 +21,16 @@ class AdminDashboard extends ConsumerStatefulWidget {
 class _AdminDashboardState extends ConsumerState<AdminDashboard> {
   StreamSubscription? ngoSubscription;
   StreamSubscription? settingsSubscription;
+  FirebaseFirestore? _ngoFirestore;
+
+  static const FirebaseOptions _ngoFirebaseOptions = FirebaseOptions(
+    apiKey: 'AIzaSyBeieryGaw4bh4dtbrI54qsIc51XkP6SoM',
+    appId: '1:169949190544:web:2640453ce5dd2aa55d3b15',
+    messagingSenderId: '169949190544',
+    projectId: 'life-line-ngo',
+    authDomain: 'life-line-ngo.firebaseapp.com',
+    storageBucket: 'life-line-ngo.firebasestorage.app',
+  );
 
   @override
   void dispose() {
@@ -32,16 +43,45 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkNgoRegistration();
+      _initSecondaryFirebase();
     });
   }
 
-  void _checkNgoRegistration() {
+  Future<void> _initSecondaryFirebase() async {
     if (mounted) {
       ref.read(adminPageProvider.notifier).setLoading(true);
     }
 
-    // Listen to settings collection from life-line-admin database
+    try {
+      final secondaryApp = await Firebase.initializeApp(
+        name: 'life-line-ngo',
+        options: _ngoFirebaseOptions,
+      );
+      _ngoFirestore = FirebaseFirestore.instanceFor(app: secondaryApp);
+      _checkNgoRegistration();
+    } catch (e) {
+      if (mounted) {
+        ref.read(adminPageProvider.notifier).setLoading(false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('An unexpected error occurred, please re-login'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => const AdminAuthentication()),
+        );
+      }
+    }
+  }
+
+  void _checkNgoRegistration() {
+    if (_ngoFirestore == null) return;
+
+    if (mounted) {
+      ref.read(adminPageProvider.notifier).setLoading(true);
+    }
+
     try {
       settingsSubscription = FirebaseFirestore.instance
           .collection('settings')
@@ -65,8 +105,8 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
               return;
             }
 
-            // If auto approval is OFF, listen to unapproved NGOs from life-line-admin
-            ngoSubscription = FirebaseFirestore.instance
+            // If auto approval is OFF, listen to unapproved NGOs from life-line-ngo
+            ngoSubscription = _ngoFirestore!
                 .collection('ngo-info-database')
                 .where('approved', isEqualTo: false)
                 .snapshots()
@@ -124,14 +164,16 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
     Map<String, dynamic> ngo,
     bool isApproved,
   ) async {
+    if (_ngoFirestore == null) return;
+
     try {
       if (isApproved) {
-        await FirebaseFirestore.instance
+        await _ngoFirestore!
             .collection('ngo-info-database')
             .doc(ngo['docId'])
             .update({'approved': true});
       } else {
-        await FirebaseFirestore.instance
+        await _ngoFirestore!
             .collection('ngo-info-database')
             .doc(ngo['docId'])
             .delete();
@@ -265,6 +307,7 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
                               padding: const EdgeInsets.symmetric(
                                 vertical: AppSpacing.md,
                               ),
+
                               decoration: BoxDecoration(
                                 color: AppColors.success,
                                 borderRadius: BorderRadius.circular(12),

@@ -65,7 +65,7 @@ class _AdminAuthenticationState extends ConsumerState<AdminAuthentication> {
           ref.read(adminAuthPageProvider.notifier).setLoading(false);
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('An unexpected error occurred'),
+              content: Text('An unexpected error occurred, please try again'),
               backgroundColor: AppColors.error,
             ),
           );
