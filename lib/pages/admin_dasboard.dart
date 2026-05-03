@@ -21,7 +21,10 @@ class AdminDashboard extends ConsumerStatefulWidget {
 class _AdminDashboardState extends ConsumerState<AdminDashboard> {
   StreamSubscription? ngoSubscription;
   StreamSubscription? settingsSubscription;
+  StreamSubscription? victimSubscription;
+  StreamSubscription? ngoCountSubscription;
   FirebaseFirestore? _ngoFirestore;
+  FirebaseFirestore? _victimFirestore;
 
   static const FirebaseOptions _ngoFirebaseOptions = FirebaseOptions(
     apiKey: 'AIzaSyBeieryGaw4bh4dtbrI54qsIc51XkP6SoM',
@@ -32,10 +35,22 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
     storageBucket: 'life-line-ngo.firebasestorage.app',
   );
 
+  // life-line-victim database credentials
+  static const FirebaseOptions _victimFirebaseOptions = FirebaseOptions(
+    apiKey: 'AIzaSyCgdeU_737w9twNR2zt5dzyG5EXK5uKxR0',
+    appId: '1:909144850972:web:a9eb7a5cfcec7e437c55d9',
+    messagingSenderId: '909144850972',
+    projectId: 'life-line-victim-27aaa',
+    authDomain: 'life-line-victim-27aaa.firebaseapp.com',
+    storageBucket: 'life-line-victim-27aaa.firebasestorage.app',
+  );
+
   @override
   void dispose() {
     ngoSubscription?.cancel();
     settingsSubscription?.cancel();
+    victimSubscription?.cancel();
+    ngoCountSubscription?.cancel();
     super.dispose();
   }
 
@@ -53,12 +68,27 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
     }
 
     try {
-      final secondaryApp = await Firebase.initializeApp(
+      // Initialize NGO Firebase
+      final ngoApp = await Firebase.initializeApp(
         name: 'life-line-ngo',
         options: _ngoFirebaseOptions,
       );
-      _ngoFirestore = FirebaseFirestore.instanceFor(app: secondaryApp);
+      _ngoFirestore = FirebaseFirestore.instanceFor(app: ngoApp);
+
+      // Initialize Victim Firebase
+      final victimApp = await Firebase.initializeApp(
+        name: 'life-line-victim',
+        options: _victimFirebaseOptions,
+      );
+      _victimFirestore = FirebaseFirestore.instanceFor(app: victimApp);
+
       _checkNgoRegistration();
+      _listenToVictimCount();
+      _listenToNgoCount();
+
+      if (mounted) {
+        ref.read(adminPageProvider.notifier).setLoading(false);
+      }
     } catch (e) {
       if (mounted) {
         ref.read(adminPageProvider.notifier).setLoading(false);
@@ -77,12 +107,8 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
 
   void _checkNgoRegistration() {
     if (_ngoFirestore == null) return;
-
-    if (mounted) {
-      ref.read(adminPageProvider.notifier).setLoading(true);
-    }
-
     try {
+      settingsSubscription?.cancel();
       settingsSubscription = FirebaseFirestore.instance
           .collection('settings')
           .snapshots()
@@ -100,10 +126,11 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
             if (autoApprovedValue) {
               if (mounted) {
                 ref.read(adminPageProvider.notifier).setNgoRequests([]);
-                ref.read(adminPageProvider.notifier).setLoading(false);
               }
               return;
             }
+
+            ngoSubscription?.cancel();
 
             // If auto approval is OFF, listen to unapproved NGOs from life-line-ngo
             ngoSubscription = _ngoFirestore!
@@ -139,23 +166,55 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
                     ref
                         .read(adminPageProvider.notifier)
                         .setNgoRequests(requests);
-                    ref.read(adminPageProvider.notifier).setLoading(false);
                   }
                 });
           });
     } catch (e) {
-      if (mounted) {
-        ref.read(adminPageProvider.notifier).setLoading(false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Error loading NGO requests, please re-login'),
-            backgroundColor: AppColors.error,
-          ),
-        );
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const AdminAuthentication()),
-        );
-      }
+      rethrow;
+    }
+  }
+
+  void _listenToNgoCount() {
+    if (_ngoFirestore == null) return;
+
+    try {
+      ngoCountSubscription?.cancel();
+      ngoCountSubscription = _ngoFirestore!
+          .collection('ngo-info-database')
+          .snapshots()
+          .listen((snapshot) {
+            if (!mounted) return;
+
+            final ngoCount = snapshot.docs.length;
+
+            if (mounted) {
+              ref.read(adminPageProvider.notifier).setNgoCount(ngoCount);
+            }
+          });
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  void _listenToVictimCount() {
+    if (_victimFirestore == null) return;
+
+    try {
+      victimSubscription?.cancel();
+      victimSubscription = _victimFirestore!
+          .collection('users')
+          .snapshots()
+          .listen((snapshot) {
+            if (!mounted) return;
+
+            final victimCount = snapshot.docs.length;
+
+            if (mounted) {
+              ref.read(adminPageProvider.notifier).setVictimCount(victimCount);
+            }
+          });
+    } catch (e) {
+      rethrow;
     }
   }
 
@@ -167,6 +226,9 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
     if (_ngoFirestore == null) return;
 
     try {
+      if (mounted) {
+        ref.read(adminPageProvider.notifier).setLoading(true);
+      }
       if (isApproved) {
         await _ngoFirestore!
             .collection('ngo-info-database')
@@ -202,6 +264,10 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
             backgroundColor: AppColors.error,
           ),
         );
+      }
+    } finally {
+      if (mounted) {
+        ref.read(adminPageProvider.notifier).setLoading(false);
       }
     }
   }
@@ -775,70 +841,81 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
   }
 
   Widget _buildStatCards(bool isCompact) {
-    final stats = [
-      {
-        'title': 'Active Users',
-        'value': '3',
-        'subtitle': '1 New',
-        'color': Colors.orange,
-      },
-      {
-        'title': 'Registered NGOs',
-        'value': '8',
-        'subtitle': '2 New',
-        'color': Colors.purple,
-      },
-      {
-        'title': 'Ongoing Operations',
-        'value': '1',
-        'subtitle': '1 New',
-        'color': Colors.red,
-      },
-    ];
+    return Consumer(
+      builder: (context, ref, child) {
+        if (!mounted) return const SizedBox.shrink();
+        final victimCount = ref.watch(
+          adminPageProvider.select((v) => v.victimCount),
+        );
+        if (!mounted) return const SizedBox.shrink();
+        final ngoCount = ref.watch(adminPageProvider.select((v) => v.ngoCount));
 
-    if (isCompact) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: stats
-            .map(
-              (stat) => Padding(
-                padding: const EdgeInsets.only(bottom: AppSpacing.lg),
-                child: _StatCard(
-                  title: stat['title'] as String,
-                  value: stat['value'] as String,
-                  subtitle: stat['subtitle'] as String,
-                  color: stat['color'] as Color,
-                ),
-              ),
-            )
-            .toList(),
-      );
-    }
+        final stats = [
+          {
+            'title': 'Active Users',
+            'value': victimCount.toString(),
+            'subtitle': 'Real-time count',
+            'color': Colors.orange,
+          },
+          {
+            'title': 'Registered NGOs',
+            'value': ngoCount.toString(),
+            'subtitle': 'Real-time count',
+            'color': Colors.purple,
+          },
+          {
+            'title': 'Ongoing Operations',
+            'value': '1',
+            'subtitle': 'Real-time count',
+            'color': Colors.red,
+          },
+        ];
 
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: stats
-            .asMap()
-            .entries
-            .map(
-              (entry) => Padding(
-                padding: EdgeInsets.only(
-                  right: entry.key < stats.length - 1 ? AppSpacing.xl : 0,
-                ),
-                child: SizedBox(
-                  width: 280,
-                  child: _StatCard(
-                    title: entry.value['title'] as String,
-                    value: entry.value['value'] as String,
-                    subtitle: entry.value['subtitle'] as String,
-                    color: entry.value['color'] as Color,
+        if (isCompact) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: stats
+                .map(
+                  (stat) => Padding(
+                    padding: const EdgeInsets.only(bottom: AppSpacing.lg),
+                    child: _StatCard(
+                      title: stat['title'] as String,
+                      value: stat['value'] as String,
+                      subtitle: stat['subtitle'] as String,
+                      color: stat['color'] as Color,
+                    ),
                   ),
-                ),
-              ),
-            )
-            .toList(),
-      ),
+                )
+                .toList(),
+          );
+        }
+
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: stats
+                .asMap()
+                .entries
+                .map(
+                  (entry) => Padding(
+                    padding: EdgeInsets.only(
+                      right: entry.key < stats.length - 1 ? AppSpacing.xl : 0,
+                    ),
+                    child: SizedBox(
+                      width: 280,
+                      child: _StatCard(
+                        title: entry.value['title'] as String,
+                        value: entry.value['value'] as String,
+                        subtitle: entry.value['subtitle'] as String,
+                        color: entry.value['color'] as Color,
+                      ),
+                    ),
+                  ),
+                )
+                .toList(),
+          ),
+        );
+      },
     );
   }
 }

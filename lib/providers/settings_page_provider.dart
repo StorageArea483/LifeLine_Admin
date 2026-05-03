@@ -8,7 +8,7 @@ class SettingsPageNotifier extends StateNotifier<SettingsPageState> {
           autoApprovalMode: false,
           sosSystemEnabled: false,
           systemMaintenance: false,
-          operatorsEnabled: false,
+          botEnabled: false,
         ),
       );
 
@@ -28,8 +28,8 @@ class SettingsPageNotifier extends StateNotifier<SettingsPageState> {
     state = state.copyWith(systemMaintenance: systemMaintenance);
   }
 
-  void setOperatorsEnabled(bool operatorsEnabled) {
-    state = state.copyWith(operatorsEnabled: operatorsEnabled);
+  void setBotAccessEnabled(bool botEnabled) {
+    state = state.copyWith(botEnabled: botEnabled);
   }
 }
 
@@ -38,14 +38,14 @@ class SettingsPageState {
   final bool autoApprovalMode;
   final bool sosSystemEnabled;
   final bool systemMaintenance;
-  final bool operatorsEnabled;
+  final bool botEnabled;
 
   SettingsPageState({
     required this.isLoading,
     required this.autoApprovalMode,
     required this.sosSystemEnabled,
     required this.systemMaintenance,
-    required this.operatorsEnabled,
+    required this.botEnabled,
   });
 
   SettingsPageState copyWith({
@@ -53,14 +53,14 @@ class SettingsPageState {
     bool? autoApprovalMode,
     bool? sosSystemEnabled,
     bool? systemMaintenance,
-    bool? operatorsEnabled,
+    bool? botEnabled,
   }) {
     return SettingsPageState(
       isLoading: isLoading ?? this.isLoading,
       autoApprovalMode: autoApprovalMode ?? this.autoApprovalMode,
       sosSystemEnabled: sosSystemEnabled ?? this.sosSystemEnabled,
       systemMaintenance: systemMaintenance ?? this.systemMaintenance,
-      operatorsEnabled: operatorsEnabled ?? this.operatorsEnabled,
+      botEnabled: botEnabled ?? this.botEnabled,
     );
   }
 }
@@ -69,3 +69,5 @@ final settingsPageProvider =
     StateNotifierProvider<SettingsPageNotifier, SettingsPageState>((ref) {
       return SettingsPageNotifier();
     });
+
+final settingsCardPageProvider = StateProvider<bool>((ref) => false);

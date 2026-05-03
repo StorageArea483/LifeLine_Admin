@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:life_line_admin/providers/settings_page_provider.dart';
 import 'package:life_line_admin/styles/styles.dart';
 
-class SettingsCard extends StatefulWidget {
+class SettingsCard extends ConsumerStatefulWidget {
   final String title;
   final String image;
   final Widget child;
@@ -16,12 +18,11 @@ class SettingsCard extends StatefulWidget {
   });
 
   @override
-  State<SettingsCard> createState() => _SettingsCardState();
+  ConsumerState<SettingsCard> createState() => _SettingsCardState();
 }
 
-class _SettingsCardState extends State<SettingsCard> {
-  bool _isExpanded = false;
-
+class _SettingsCardState extends ConsumerState<SettingsCard> {
+  bool isExpanded = false;
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -42,9 +43,10 @@ class _SettingsCardState extends State<SettingsCard> {
             cursor: SystemMouseCursors.click,
             child: GestureDetector(
               onTap: () {
-                setState(() {
-                  _isExpanded = !_isExpanded;
-                });
+                if (mounted) {
+                  ref.read(settingsCardPageProvider.notifier).state =
+                      !isExpanded;
+                }
               },
               child: Container(
                 padding: const EdgeInsets.all(AppSpacing.xl),
@@ -70,38 +72,50 @@ class _SettingsCardState extends State<SettingsCard> {
                         ),
                       ),
                     ),
-                    AnimatedRotation(
-                      turns: _isExpanded ? 0.5 : 0,
-                      duration: const Duration(milliseconds: 200),
-                      child: Icon(
-                        Icons.keyboard_arrow_down,
-                        color: AppColors.textSecondary,
-                        size: widget.isMobile ? 20 : 24,
-                      ),
+                    Consumer(
+                      builder: (context, ref, child) {
+                        if (!mounted) return const SizedBox.shrink();
+                        final isExpanded = ref.watch(settingsCardPageProvider);
+                        return AnimatedRotation(
+                          turns: isExpanded ? 0.5 : 0,
+                          duration: const Duration(milliseconds: 200),
+                          child: Icon(
+                            Icons.keyboard_arrow_down,
+                            color: AppColors.textSecondary,
+                            size: widget.isMobile ? 20 : 24,
+                          ),
+                        );
+                      },
                     ),
                   ],
                 ),
               ),
             ),
           ),
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 300),
-            height: _isExpanded ? null : 0,
-            child: AnimatedOpacity(
-              duration: const Duration(milliseconds: 200),
-              opacity: _isExpanded ? 1.0 : 0.0,
-              child: _isExpanded
-                  ? Container(
-                      padding: const EdgeInsets.fromLTRB(
-                        AppSpacing.xl,
-                        0,
-                        AppSpacing.xl,
-                        AppSpacing.xl,
-                      ),
-                      child: widget.child,
-                    )
-                  : const SizedBox.shrink(),
-            ),
+          Consumer(
+            builder: (context, ref, child) {
+              if (!mounted) return const SizedBox.shrink();
+              final isExpanded = ref.watch(settingsCardPageProvider);
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                height: isExpanded ? null : 0,
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 200),
+                  opacity: isExpanded ? 1.0 : 0.0,
+                  child: isExpanded
+                      ? Container(
+                          padding: const EdgeInsets.fromLTRB(
+                            AppSpacing.xl,
+                            0,
+                            AppSpacing.xl,
+                            AppSpacing.xl,
+                          ),
+                          child: widget.child,
+                        )
+                      : const SizedBox.shrink(),
+                ),
+              );
+            },
           ),
         ],
       ),

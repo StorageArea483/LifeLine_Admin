@@ -60,6 +60,7 @@ class _ChangePasswordState extends ConsumerState<ChangePassword> {
 
       if (querySnapshot.docs.isEmpty) {
         if (mounted) {
+          ref.read(changePassProvider.notifier).setIsLoading(false);
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Admin record not found'),

@@ -58,6 +58,9 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
       );
       _victimFirestore = FirebaseFirestore.instanceFor(app: secondaryApp);
       _listenToVictims();
+      if (mounted) {
+        ref.read(victimPageProvider.notifier).setLoading(false);
+      }
     } catch (e) {
       if (mounted) {
         ref.read(victimPageProvider.notifier).setLoading(false);
@@ -77,51 +80,35 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
   void _listenToVictims() {
     if (_victimFirestore == null) return;
 
-    if (mounted) {
-      ref.read(victimPageProvider.notifier).setLoading(true);
-    }
-
     try {
+      victimSubscription?.cancel();
       victimSubscription = _victimFirestore!
-        .collection('users')
-        .snapshots()
-        .listen((snapshot) {
-          if (!mounted) return;
+          .collection('users')
+          .snapshots()
+          .listen((snapshot) {
+            if (!mounted) return;
 
-          final allVictims = snapshot.docs.map((doc) => doc.data()).toList();
+            final allVictims = snapshot.docs.map((doc) => doc.data()).toList();
 
-          final searchTerm = _searchController.text;
+            final searchTerm = _searchController.text;
 
-          List<Map<String, dynamic>> finalList;
+            List<Map<String, dynamic>> finalList;
 
-          if (searchTerm.isEmpty) {
-            finalList = allVictims;
-          } else {
-            finalList = allVictims.where((victim) {
-              final name = (victim['name'] ?? '').toString();
-              return name.toLowerCase().contains(searchTerm.toLowerCase());
-            }).toList();
-          }
+            if (searchTerm.isEmpty) {
+              finalList = allVictims;
+            } else {
+              finalList = allVictims.where((victim) {
+                final name = (victim['name'] ?? '').toString();
+                return name.toLowerCase().contains(searchTerm.toLowerCase());
+              }).toList();
+            }
 
-          if (mounted) {
-            ref.read(victimPageProvider.notifier).setVictims(finalList);
-            ref.read(victimPageProvider.notifier).setLoading(false);
-          }
-        });
-    }catch (e) {
-      if (mounted) {
-        ref.read(victimPageProvider.notifier).setLoading(false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Error fetching victims, please try again'),
-            backgroundColor: AppColors.error,
-          ),
-        );
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (context) => const AdminDashboard()),
-          );
-      }
-      return;
+            if (mounted) {
+              ref.read(victimPageProvider.notifier).setVictims(finalList);
+            }
+          });
+    } catch (e) {
+      rethrow;
     }
   }
 
@@ -143,6 +130,10 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
       }
 
       if (mounted) {
+        ref.read(victimPageProvider.notifier).setLoading(false);
+      }
+
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('User removed successfully'),
@@ -152,6 +143,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
       }
     } catch (e) {
       if (mounted) {
+        ref.read(victimPageProvider.notifier).setLoading(false);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Error removing user, please try again'),
@@ -178,8 +170,12 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
       for (var doc in querySnapshot.docs) {
         await doc.reference.update({'blocked': true});
       }
+      if (mounted) {
+        ref.read(victimPageProvider.notifier).setLoading(false);
+      }
     } catch (e) {
       if (mounted) {
+        ref.read(victimPageProvider.notifier).setLoading(false);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Error blocking User, please retry'),
@@ -206,8 +202,12 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
       for (var doc in querySnapshot.docs) {
         await doc.reference.update({'blocked': false});
       }
+      if (mounted) {
+        ref.read(victimPageProvider.notifier).setLoading(false);
+      }
     } catch (e) {
       if (mounted) {
+        ref.read(victimPageProvider.notifier).setLoading(false);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Error blocking User, please retry'),
@@ -437,22 +437,20 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                       width: double.infinity,
                       height: 48,
                       child: ElevatedButton(
-                            onPressed: _listenToVictims,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.primaryMaroon,
-                              foregroundColor: Colors.white,
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            child:const Text(
-                                    'Search Users',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
+                        onPressed: _listenToVictims,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primaryMaroon,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
                           ),
+                        ),
+                        child: const Text(
+                          'Search Users',
+                          style: TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                      ),
                     ),
                   ],
                 )
@@ -494,25 +492,23 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                     SizedBox(
                       height: 48,
                       child: ElevatedButton(
-                            onPressed:  _listenToVictims,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.primaryMaroon,
-                              foregroundColor: Colors.white,
-                              elevation: 0,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: AppSpacing.xl,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            child:const Text(
-                                    'Search Users',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
+                        onPressed: _listenToVictims,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primaryMaroon,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.xl,
                           ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text(
+                          'Search Users',
+                          style: TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                      ),
                     ),
                   ],
                 ),

@@ -57,6 +57,9 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
       );
       _ngoFirestore = FirebaseFirestore.instanceFor(app: secondaryApp);
       _listenToNgos();
+      if (mounted) {
+        ref.read(ngoPageProvider.notifier).setLoading(false);
+      }
     } catch (e) {
       if (mounted) {
         ref.read(ngoPageProvider.notifier).setLoading(false);
@@ -76,49 +79,34 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
   void _listenToNgos() {
     if (_ngoFirestore == null) return;
 
-    if (mounted) {
-      ref.read(ngoPageProvider.notifier).setLoading(true);
-    }
-
     try {
+      ngoSubscription?.cancel();
       ngoSubscription = _ngoFirestore!
-        .collection('ngo-info-database')
-        .snapshots()
-        .listen((snapshot) {
-          if (!mounted) return;
+          .collection('ngo-info-database')
+          .snapshots()
+          .listen((snapshot) {
+            if (!mounted) return;
 
-          final allNgos = snapshot.docs.map((doc) => doc.data()).toList();
+            final allNgos = snapshot.docs.map((doc) => doc.data()).toList();
 
-          final searchTerm = _searchController.text;
+            final searchTerm = _searchController.text;
 
-          List<Map<String, dynamic>> finalList;
+            List<Map<String, dynamic>> finalList;
 
-          if (searchTerm.isEmpty) {
-            finalList = allNgos;
-          } else {
-            finalList = allNgos.where((ngo) {
-              final name = (ngo['ngoName'] ?? '').toString();
-              return name.toLowerCase().contains(searchTerm.toLowerCase());
-            }).toList();
-          }
-          if (mounted) {
-            ref.read(ngoPageProvider.notifier).setNgos(finalList);
-            ref.read(ngoPageProvider.notifier).setLoading(false);
-          }
-        });
-    }catch (e) {
-      if (mounted) {
-        ref.read(ngoPageProvider.notifier).setLoading(false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Error fetching NGOs, please try again'),
-            backgroundColor: AppColors.error,
-          ),
-        );
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const AdminDashboard()),
-        );
-      }
+            if (searchTerm.isEmpty) {
+              finalList = allNgos;
+            } else {
+              finalList = allNgos.where((ngo) {
+                final name = (ngo['ngoName'] ?? '').toString();
+                return name.toLowerCase().contains(searchTerm.toLowerCase());
+              }).toList();
+            }
+            if (mounted) {
+              ref.read(ngoPageProvider.notifier).setNgos(finalList);
+            }
+          });
+    } catch (e) {
+      rethrow;
     }
   }
 
@@ -138,8 +126,12 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
       for (var doc in querySnapshot.docs) {
         await doc.reference.delete();
       }
+      if (mounted) {
+        ref.read(ngoPageProvider.notifier).setLoading(false);
+      }
     } catch (e) {
       if (mounted) {
+        ref.read(ngoPageProvider.notifier).setLoading(false);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Error removing user, please try again'),
@@ -166,8 +158,12 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
       for (var doc in querySnapshot.docs) {
         await doc.reference.update({'blocked': true});
       }
+      if (mounted) {
+        ref.read(ngoPageProvider.notifier).setLoading(false);
+      }
     } catch (e) {
       if (mounted) {
+        ref.read(ngoPageProvider.notifier).setLoading(false);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Error blocking NGO, please retry'),
@@ -194,8 +190,12 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
       for (var doc in querySnapshot.docs) {
         await doc.reference.update({'blocked': false});
       }
+      if (mounted) {
+        ref.read(ngoPageProvider.notifier).setLoading(false);
+      }
     } catch (e) {
       if (mounted) {
+        ref.read(ngoPageProvider.notifier).setLoading(false);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Error blocking NGO, please retry'),
@@ -426,22 +426,20 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
                       width: double.infinity,
                       height: 48,
                       child: ElevatedButton(
-                            onPressed:  _listenToNgos,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.primaryMaroon,
-                              foregroundColor: Colors.white,
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            child:const Text(
-                                    'Search Ngos',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
+                        onPressed: _listenToNgos,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primaryMaroon,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
                           ),
+                        ),
+                        child: const Text(
+                          'Search Ngos',
+                          style: TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                      ),
                     ),
                   ],
                 )
@@ -483,25 +481,23 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
                     SizedBox(
                       height: 48,
                       child: ElevatedButton(
-                            onPressed: _listenToNgos,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.primaryMaroon,
-                              foregroundColor: Colors.white,
-                              elevation: 0,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: AppSpacing.xl,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            child: const Text(
-                                    'Search Ngos',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
+                        onPressed: _listenToNgos,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primaryMaroon,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.xl,
                           ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text(
+                          'Search Ngos',
+                          style: TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                      ),
                     ),
                   ],
                 ),

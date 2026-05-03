@@ -26,6 +26,64 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   final TextEditingController _searchController = TextEditingController();
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((value) {
+      initialize();
+    });
+  }
+
+  Future<void> initialize() async {
+    if (mounted) {
+      ref.read(settingsPageProvider.notifier).setLoading(true);
+    }
+
+    try {
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('settings')
+          .get();
+
+      if (querySnapshot.docs.isNotEmpty) {
+        final settingsData = querySnapshot.docs.first.data();
+
+        // Fetch and set all settings values
+        final autoApproved = settingsData['auto approved'] ?? false;
+        final sosDisabled = settingsData['sos disabled'] ?? false;
+        final maintenance = settingsData['maintenance'] ?? false;
+        final botAccess = settingsData['bot access'] ?? false;
+
+        if (mounted) {
+          ref
+              .read(settingsPageProvider.notifier)
+              .setAutoApprovalMode(autoApproved);
+          ref
+              .read(settingsPageProvider.notifier)
+              .setSosSystemEnabled(sosDisabled);
+          ref
+              .read(settingsPageProvider.notifier)
+              .setSystemMaintenance(maintenance);
+          ref
+              .read(settingsPageProvider.notifier)
+              .setBotAccessEnabled(botAccess);
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('An unexpected error occurred'),
+            backgroundColor: AppColors.warning,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        ref.read(settingsPageProvider.notifier).setLoading(false);
+      }
+    }
+  }
+
+  @override
   void dispose() {
     _currentPasswordController.dispose();
     _newPasswordController.dispose();
@@ -203,7 +261,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         SizedBox(height: isMobile ? AppSpacing.lg : AppSpacing.xl),
         _buildEmergencySystemSection(isMobile),
         SizedBox(height: isMobile ? AppSpacing.lg : AppSpacing.xl),
-        _buildOperatorControlSection(isMobile),
+        _buildBotControlSection(isMobile),
       ],
     );
   }
@@ -508,10 +566,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  Widget _buildOperatorControlSection(bool isMobile) {
+  Widget _buildBotControlSection(bool isMobile) {
     return SettingsCard(
-      title: 'Operator Control',
-      image: 'assets/images/operator_control.webp',
+      title: 'Bot Access',
+      image: 'assets/images/robo_head.webp',
       isMobile: isMobile,
       child: Column(
         children: [
@@ -519,7 +577,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             builder: (context, ref, child) {
               if (!mounted) return const SizedBox.shrink();
               final operatorsEnabled = ref.watch(
-                settingsPageProvider.select((v) => v.operatorsEnabled),
+                settingsPageProvider.select((v) => v.botEnabled),
               );
               return Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -529,7 +587,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Enable Operators',
+                          'Enable Emergency Assistant',
                           style: AppText.fieldLabel.copyWith(
                             fontSize: isMobile ? 14 : 16,
                             fontWeight: FontWeight.w600,
@@ -538,8 +596,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         const SizedBox(height: 4),
                         Text(
                           operatorsEnabled
-                              ? 'Operators can access the system'
-                              : 'Operator access is disabled',
+                              ? 'Assistant access is disabled'
+                              : 'Assistant access is enabled',
                           style: AppText.small.copyWith(
                             fontSize: isMobile ? 12 : 14,
                           ),
@@ -553,81 +611,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               );
             },
           ),
-          const SizedBox(height: AppSpacing.xl),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Currently Active (3)',
-                style: AppText.fieldLabel.copyWith(
-                  fontSize: isMobile ? 14 : 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              ..._buildOperatorList(isMobile),
-            ],
-          ),
         ],
       ),
     );
-  }
-
-  List<Widget> _buildOperatorList(bool isMobile) {
-    final operators = [
-      {'name': 'John Smith', 'status': 'Online', 'lastActive': '2 min ago'},
-      {'name': 'Sarah Johnson', 'status': 'Online', 'lastActive': '5 min ago'},
-      {'name': 'Mike Wilson', 'status': 'Away', 'lastActive': '15 min ago'},
-    ];
-
-    return operators.map((operator) {
-      return Container(
-        margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-        padding: const EdgeInsets.all(AppSpacing.md),
-        decoration: BoxDecoration(
-          color: AppColors.softBackground,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: AppColors.borderLight),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(
-                color: operator['status'] == 'Online'
-                    ? AppColors.success
-                    : AppColors.warning,
-                shape: BoxShape.circle,
-              ),
-            ),
-            const SizedBox(width: AppSpacing.md),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    operator['name']!,
-                    style: TextStyle(
-                      fontSize: isMobile ? 14 : 16,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.darkCharcoal,
-                    ),
-                  ),
-                  Text(
-                    '${operator['status']} • ${operator['lastActive']}',
-                    style: TextStyle(
-                      fontSize: isMobile ? 12 : 14,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      );
-    }).toList();
   }
 
   Widget _buildTextField({
@@ -773,7 +759,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 if (querySnapshot.docs.isNotEmpty) {
                   // Document exists, update it
                   await querySnapshot.docs.first.reference.update({
-                    'operator access': !value,
+                    'bot access': !value,
                   });
                 } else {
                   if (mounted) {
@@ -789,7 +775,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 if (mounted) {
                   ref
                       .read(settingsPageProvider.notifier)
-                      .setOperatorsEnabled(!value);
+                      .setBotAccessEnabled(!value);
                 }
               } catch (e) {
                 if (mounted) {
