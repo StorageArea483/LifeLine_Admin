@@ -1,5 +1,4 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:life_line_admin/providers/settings_page_provider.dart';
 import 'package:life_line_admin/styles/styles.dart';
@@ -17,9 +16,6 @@ class SettingsScreen extends ConsumerStatefulWidget {
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   final _formKey = GlobalKey<FormState>();
-  FirebaseFirestore get _firestore {
-    return FirebaseFirestore.instanceFor(app: Firebase.app('life-line-ngo'));
-  }
 
   // Controllers for form fields (UI only)
   final TextEditingController _currentPasswordController =
@@ -281,8 +277,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 } catch (e) {
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('An unexpected error occurred $e'),
+                      const SnackBar(
+                        content: Text('An unexpected error occurred'),
                         backgroundColor: AppColors.error,
                       ),
                     );
@@ -452,7 +448,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               .read(settingsPageProvider.notifier)
                               .setLoading(true);
                           try {
-                            final querySnapshot = await _firestore
+                            final querySnapshot = await FirebaseFirestore
+                                .instance
                                 .collection('settings')
                                 .get();
 
@@ -683,7 +680,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           if (mounted && index == 0) {
             ref.read(settingsPageProvider.notifier).setLoading(true);
             try {
-              final querySnapshot = await _firestore
+              final querySnapshot = await FirebaseFirestore.instance
                   .collection('settings')
                   .get();
 
@@ -725,7 +722,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           } else if (mounted && index == 1) {
             ref.read(settingsPageProvider.notifier).setLoading(true);
             try {
-              final querySnapshot = await _firestore
+              final querySnapshot = await FirebaseFirestore.instance
                   .collection('settings')
                   .get();
 
@@ -769,7 +766,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             if (mounted) {
               ref.read(settingsPageProvider.notifier).setLoading(true);
               try {
-                final querySnapshot = await _firestore
+                final querySnapshot = await FirebaseFirestore.instance
                     .collection('settings')
                     .get();
 

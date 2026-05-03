@@ -62,12 +62,13 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
       if (mounted) {
         ref.read(victimPageProvider.notifier).setLoading(false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'An unexpected error occurred please refresh page $e',
-            ),
+          const SnackBar(
+            content: Text('Error fetching victims, please try again'),
             backgroundColor: AppColors.error,
           ),
+        );
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => const AdminDashboard()),
         );
       }
     }
@@ -80,7 +81,8 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
       ref.read(victimPageProvider.notifier).setLoading(true);
     }
 
-    victimSubscription = _victimFirestore!
+    try {
+      victimSubscription = _victimFirestore!
         .collection('users')
         .snapshots()
         .listen((snapshot) {
@@ -106,6 +108,21 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
             ref.read(victimPageProvider.notifier).setLoading(false);
           }
         });
+    }catch (e) {
+      if (mounted) {
+        ref.read(victimPageProvider.notifier).setLoading(false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Error fetching victims, please try again'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (context) => const AdminDashboard()),
+          );
+      }
+      return;
+    }
   }
 
   Future<void> _removeUser(String email) async {
@@ -419,14 +436,8 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                     SizedBox(
                       width: double.infinity,
                       height: 48,
-                      child: Consumer(
-                        builder: (context, ref, child) {
-                          if (!mounted) return const SizedBox.shrink();
-                          final isLoading = ref.watch(
-                            victimPageProvider.select((v) => v.isLoading),
-                          );
-                          return ElevatedButton(
-                            onPressed: isLoading ? null : _listenToVictims,
+                      child: ElevatedButton(
+                            onPressed: _listenToVictims,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.primaryMaroon,
                               foregroundColor: Colors.white,
@@ -435,24 +446,13 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                                 borderRadius: BorderRadius.circular(12),
                               ),
                             ),
-                            child: isLoading
-                                ? const SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      color: Colors.white,
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Text(
+                            child:const Text(
                                     'Search Users',
                                     style: TextStyle(
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
-                          );
-                        },
-                      ),
+                          ),
                     ),
                   ],
                 )
@@ -493,14 +493,8 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                     const SizedBox(width: AppSpacing.lg),
                     SizedBox(
                       height: 48,
-                      child: Consumer(
-                        builder: (context, ref, child) {
-                          if (!mounted) return const SizedBox.shrink();
-                          final isLoading = ref.watch(
-                            victimPageProvider.select((v) => v.isLoading),
-                          );
-                          return ElevatedButton(
-                            onPressed: isLoading ? null : _listenToVictims,
+                      child: ElevatedButton(
+                            onPressed:  _listenToVictims,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.primaryMaroon,
                               foregroundColor: Colors.white,
@@ -512,24 +506,13 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                                 borderRadius: BorderRadius.circular(12),
                               ),
                             ),
-                            child: isLoading
-                                ? const SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      color: Colors.white,
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Text(
+                            child:const Text(
                                     'Search Users',
                                     style: TextStyle(
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
-                          );
-                        },
-                      ),
+                          ),
                     ),
                   ],
                 ),

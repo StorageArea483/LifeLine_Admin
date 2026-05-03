@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:life_line_admin/pages/admin_authentication.dart';
 import 'package:life_line_admin/providers/admin_page_provider.dart';
@@ -19,20 +18,8 @@ class AdminDashboard extends ConsumerStatefulWidget {
 }
 
 class _AdminDashboardState extends ConsumerState<AdminDashboard> {
-  FirebaseFirestore? _ngoFirestore;
   StreamSubscription? ngoSubscription;
   StreamSubscription? settingsSubscription;
-
-  // life-line-ngo project credentials
-  static const FirebaseOptions _ngoFirebaseOptions = FirebaseOptions(
-    apiKey:
-        'AIzaSyBeieryGaw4bh4dtbrI54qsIc51XkP6SoM', // Get from life-line-ngo project settings
-    appId: '1:169949190544:web:2640453ce5dd2aa55d3b15',
-    messagingSenderId: '169949190544',
-    projectId: 'life-line-ngo',
-    authDomain: 'life-line-ngo.firebaseapp.com',
-    storageBucket: 'life-line-ngo.firebasestorage.app',
-  );
 
   @override
   void dispose() {
@@ -45,29 +32,83 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _initSecondaryFirebase();
+      _checkNgoRegistration();
     });
   }
 
-  Future<void> _initSecondaryFirebase() async {
+  void _checkNgoRegistration() {
     if (mounted) {
       ref.read(adminPageProvider.notifier).setLoading(true);
     }
-    try {
-      // Initialize secondary Firebase app for life-line-ngo
-      final secondaryApp = await Firebase.initializeApp(
-        name: 'life-line-ngo',
-        options: _ngoFirebaseOptions,
-      );
-      _ngoFirestore = FirebaseFirestore.instanceFor(app: secondaryApp);
 
-      _checkNgoRegistration();
+    // Listen to settings collection from life-line-admin database
+    try {
+      settingsSubscription = FirebaseFirestore.instance
+          .collection('settings')
+          .snapshots()
+          .listen((settingsSnapshot) {
+            if (!mounted) return;
+
+            bool autoApprovedValue = false;
+
+            if (settingsSnapshot.docs.isNotEmpty) {
+              final settingsData = settingsSnapshot.docs.first.data();
+              autoApprovedValue = settingsData['auto approved'] ?? false;
+            }
+
+            // If auto approval is ON, clear pending requests immediately
+            if (autoApprovedValue) {
+              if (mounted) {
+                ref.read(adminPageProvider.notifier).setNgoRequests([]);
+                ref.read(adminPageProvider.notifier).setLoading(false);
+              }
+              return;
+            }
+
+            // If auto approval is OFF, listen to unapproved NGOs from life-line-admin
+            ngoSubscription = FirebaseFirestore.instance
+                .collection('ngo-info-database')
+                .where('approved', isEqualTo: false)
+                .snapshots()
+                .listen((snapshot) {
+                  if (!mounted) return;
+
+                  final requests = snapshot.docs.map((doc) {
+                    final data = doc.data();
+                    return {
+                      'docId': doc.id,
+                      'name': data['ngoName'] ?? 'Unknown NGO',
+                      'logo': data['ngoLogo'] ?? '',
+                      'directorName': data['directorName'] ?? '',
+                      'projectManager': data['projectManager'] ?? '',
+                      'registrationNumber': data['registrationNumber'] ?? '',
+                      'selectedProgram': data['selectedProgram'] ?? '',
+                      'phoneNumber': data['phone'] ?? '',
+                      'email': data['email'] ?? '',
+                      'address': data['address'] ?? '',
+                      'geographicalCoverage':
+                          data['geographicalCoverage'] ?? '',
+                      'pastExperience': data['pastExperience'] ?? '',
+                      'documentUrl': data['documentUrl'] ?? '',
+                      'approved': false,
+                      'branchName': data['branchName'] ?? '',
+                    };
+                  }).toList();
+
+                  if (mounted) {
+                    ref
+                        .read(adminPageProvider.notifier)
+                        .setNgoRequests(requests);
+                    ref.read(adminPageProvider.notifier).setLoading(false);
+                  }
+                });
+          });
     } catch (e) {
       if (mounted) {
         ref.read(adminPageProvider.notifier).setLoading(false);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('An unexpected error occurred, please re-login'),
+            content: Text('Error loading NGO requests, please re-login'),
             backgroundColor: AppColors.error,
           ),
         );
@@ -78,87 +119,19 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
     }
   }
 
-  void _checkNgoRegistration() {
-    if (_ngoFirestore == null) return;
-
-    // Listen to settings collection for auto approval changes
-    settingsSubscription = _ngoFirestore!
-        .collection('settings')
-        .snapshots()
-        .listen((settingsSnapshot) {
-          if (!mounted) return;
-
-          bool autoApprovedValue = false;
-
-          if (settingsSnapshot.docs.isNotEmpty) {
-            final settingsData = settingsSnapshot.docs.first.data();
-            autoApprovedValue = settingsData['auto approved'];
-          }
-
-          // Cancel previous NGO subscription before creating new one
-          ngoSubscription?.cancel();
-
-          // If auto approval is ON, clear pending requests immediately
-          if (autoApprovedValue) {
-            if (mounted) {
-              ref.read(adminPageProvider.notifier).setNgoRequests([]);
-              ref.read(adminPageProvider.notifier).setLoading(false);
-            }
-            return;
-          }
-
-          // If auto approval is OFF, listen to unapproved NGOs
-          ngoSubscription = _ngoFirestore!
-              .collection('ngo-info-database')
-              .where('approved', isEqualTo: false)
-              .snapshots()
-              .listen((snapshot) {
-                if (!mounted) return;
-
-                final requests = snapshot.docs.map((doc) {
-                  final data = doc.data();
-                  return {
-                    'docId': doc.id,
-                    'name': data['ngoName'] ?? 'Unknown NGO',
-                    'logo': data['ngoLogo'] ?? '',
-                    'directorName': data['directorName'] ?? '',
-                    'projectManager': data['projectManager'] ?? '',
-                    'registrationNumber': data['registrationNumber'] ?? '',
-                    'selectedProgram': data['selectedProgram'] ?? '',
-                    'phoneNumber': data['phone'] ?? '',
-                    'email': data['email'] ?? '',
-                    'address': data['address'] ?? '',
-                    'geographicalCoverage': data['geographicalCoverage'] ?? '',
-                    'pastExperience': data['pastExperience'] ?? '',
-                    'documentUrl': data['documentUrl'] ?? '',
-                    'approved': false,
-                    'branchName': data['branchName'] ?? '',
-                  };
-                }).toList();
-
-                if (mounted) {
-                  ref.read(adminPageProvider.notifier).setNgoRequests(requests);
-                  ref.read(adminPageProvider.notifier).setLoading(false);
-                }
-              });
-        });
-  }
-
   Future<void> _handleNgoAction(
     BuildContext context,
     Map<String, dynamic> ngo,
     bool isApproved,
   ) async {
-    if (_ngoFirestore == null) return;
-
     try {
       if (isApproved) {
-        await _ngoFirestore!
+        await FirebaseFirestore.instance
             .collection('ngo-info-database')
             .doc(ngo['docId'])
             .update({'approved': true});
       } else {
-        await _ngoFirestore!
+        await FirebaseFirestore.instance
             .collection('ngo-info-database')
             .doc(ngo['docId'])
             .delete();
@@ -383,7 +356,20 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
 
                 return Column(
                   children: [
-                    _NavBarContainer(isMobile: isMobile),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceLight,
+                        border: Border.all(
+                          color: AppColors.borderColor,
+                          width: 1,
+                        ),
+                      ),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: isMobile ? AppSpacing.lg : AppSpacing.xxl,
+                        vertical: isMobile ? AppSpacing.md : AppSpacing.lg,
+                      ),
+                      child: const NavBar(),
+                    ),
                     Expanded(
                       child: SingleChildScrollView(
                         padding: EdgeInsets.all(
@@ -548,91 +534,194 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
                 ),
               )
             else
-              ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: ngoRequests.length,
-                itemBuilder: (context, index) {
-                  final ngo = ngoRequests[index];
-                  final logoUrl = ngo['logo'] ?? '';
-                  final ngoName = ngo['name'] ?? 'Unknown NGO';
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final isMobile = constraints.maxWidth < 600;
+                  final isTablet =
+                      constraints.maxWidth >= 600 &&
+                      constraints.maxWidth < 1024;
+                  final isCompact = isMobile || isTablet;
 
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: AppSpacing.md),
-                    padding: const EdgeInsets.all(AppSpacing.lg),
-                    decoration: SimpleDecoration.card(),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 50,
-                          height: 50,
-                          decoration: BoxDecoration(
-                            color: AppColors.borderLight,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: Image.asset(
-                              logoUrl,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) {
-                                return const Icon(
-                                  Icons.business,
-                                  color: AppColors.primaryMaroon,
-                                  size: 24,
-                                );
-                              },
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: AppSpacing.lg),
-                        Expanded(
-                          flex: 2,
-                          child: Text(
-                            ngoName,
-                            style: AppText.fieldLabel,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        const SizedBox(width: AppSpacing.sm),
-                        Flexible(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppColors.warning.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              'Pending',
-                              style: AppText.small.copyWith(
-                                color: AppColors.warning,
-                                fontWeight: FontWeight.w600,
+                  return ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: ngoRequests.length,
+                    itemBuilder: (context, index) {
+                      final ngo = ngoRequests[index];
+                      final logoUrl = ngo['logo'] ?? '';
+                      final ngoName = ngo['name'] ?? 'Unknown NGO';
+
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: AppSpacing.md),
+                        padding: const EdgeInsets.all(AppSpacing.lg),
+                        decoration: SimpleDecoration.card(),
+                        child: isCompact
+                            ? Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Container(
+                                        width: 50,
+                                        height: 50,
+                                        decoration: BoxDecoration(
+                                          color: AppColors.borderLight,
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                        ),
+                                        child: ClipRRect(
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                          child: Image.asset(
+                                            logoUrl,
+                                            fit: BoxFit.cover,
+                                            errorBuilder:
+                                                (context, error, stackTrace) {
+                                                  return const Icon(
+                                                    Icons.business,
+                                                    color:
+                                                        AppColors.primaryMaroon,
+                                                    size: 24,
+                                                  );
+                                                },
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: AppSpacing.lg),
+                                      Expanded(
+                                        child: Text(
+                                          ngoName,
+                                          style: AppText.fieldLabel,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: AppSpacing.xl),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.start,
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 6,
+                                          vertical: 4,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.warning.withValues(
+                                            alpha: 0.1,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            4,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          'Pending',
+                                          style: AppText.small.copyWith(
+                                            color: AppColors.warning,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: AppSpacing.sm),
+                                      Builder(
+                                        builder: (builderContext) {
+                                          return MouseRegion(
+                                            cursor: SystemMouseCursors.click,
+                                            child: GestureDetector(
+                                              onTap: () => _showNgoDetails(
+                                                builderContext,
+                                                ngo,
+                                              ),
+                                              child: const Icon(
+                                                Icons.read_more,
+                                                color: AppColors.warning,
+                                                size: 32,
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              )
+                            : Row(
+                                children: [
+                                  Container(
+                                    width: 50,
+                                    height: 50,
+                                    decoration: BoxDecoration(
+                                      color: AppColors.borderLight,
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Image.asset(
+                                        logoUrl,
+                                        fit: BoxFit.cover,
+                                        errorBuilder:
+                                            (context, error, stackTrace) {
+                                              return const Icon(
+                                                Icons.business,
+                                                color: AppColors.primaryMaroon,
+                                                size: 24,
+                                              );
+                                            },
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: AppSpacing.lg),
+                                  Expanded(
+                                    child: Text(
+                                      ngoName,
+                                      style: AppText.fieldLabel,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.warning.withValues(
+                                        alpha: 0.1,
+                                      ),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      'Pending',
+                                      style: AppText.small.copyWith(
+                                        color: AppColors.warning,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: AppSpacing.sm),
+                                  Builder(
+                                    builder: (builderContext) {
+                                      return MouseRegion(
+                                        cursor: SystemMouseCursors.click,
+                                        child: GestureDetector(
+                                          onTap: () => _showNgoDetails(
+                                            builderContext,
+                                            ngo,
+                                          ),
+                                          child: const Icon(
+                                            Icons.read_more,
+                                            color: AppColors.warning,
+                                            size: 32,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ],
                               ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: AppSpacing.sm),
-                        Builder(
-                          builder: (builderContext) {
-                            return MouseRegion(
-                              cursor: SystemMouseCursors.click,
-                              child: GestureDetector(
-                                onTap: () =>
-                                    _showNgoDetails(builderContext, ngo),
-                                child: const Icon(
-                                  Icons.read_more,
-                                  color: AppColors.warning,
-                                  size: 32,
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ],
-                    ),
+                      );
+                    },
                   );
                 },
               ),
@@ -646,21 +735,21 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
     final stats = [
       {
         'title': 'Active Users',
-        'value': '1,452',
-        'percentage': '+5.2%',
-        'isPositive': true,
+        'value': '3',
+        'subtitle': '1 New',
+        'color': Colors.orange,
       },
       {
         'title': 'Registered NGOs',
-        'value': '87',
-        'percentage': '+1.5%',
-        'isPositive': true,
+        'value': '8',
+        'subtitle': '2 New',
+        'color': Colors.purple,
       },
       {
         'title': 'Ongoing Operations',
-        'value': '12',
-        'percentage': '-3.0%',
-        'isPositive': false,
+        'value': '1',
+        'subtitle': '1 New',
+        'color': Colors.red,
       },
     ];
 
@@ -674,10 +763,8 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
                 child: _StatCard(
                   title: stat['title'] as String,
                   value: stat['value'] as String,
-                  percentage: stat['percentage'] as String,
-                  percentageColor: (stat['isPositive'] as bool)
-                      ? AppColors.success
-                      : AppColors.error,
+                  subtitle: stat['subtitle'] as String,
+                  color: stat['color'] as Color,
                 ),
               ),
             )
@@ -701,37 +788,14 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
                   child: _StatCard(
                     title: entry.value['title'] as String,
                     value: entry.value['value'] as String,
-                    percentage: entry.value['percentage'] as String,
-                    percentageColor: (entry.value['isPositive'] as bool)
-                        ? AppColors.success
-                        : AppColors.error,
+                    subtitle: entry.value['subtitle'] as String,
+                    color: entry.value['color'] as Color,
                   ),
                 ),
               ),
             )
             .toList(),
       ),
-    );
-  }
-}
-
-// Extracted Widgets
-class _NavBarContainer extends StatelessWidget {
-  final bool isMobile;
-  const _NavBarContainer({required this.isMobile});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surfaceLight,
-        border: Border.all(color: AppColors.borderColor, width: 1),
-      ),
-      padding: EdgeInsets.symmetric(
-        horizontal: isMobile ? AppSpacing.lg : AppSpacing.xxl,
-        vertical: isMobile ? AppSpacing.md : AppSpacing.lg,
-      ),
-      child: const NavBar(),
     );
   }
 }
@@ -781,30 +845,49 @@ class _ActionCard extends StatelessWidget {
 class _StatCard extends StatelessWidget {
   final String title;
   final String value;
-  final String percentage;
-  final Color percentageColor;
+  final String subtitle;
+  final Color color;
 
   const _StatCard({
     required this.title,
     required this.value,
-    required this.percentage,
-    required this.percentageColor,
+    required this.subtitle,
+    required this.color,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.xxl),
-      decoration: SimpleDecoration.card(),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.darkCharcoal.withValues(alpha: 0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: AppText.fieldLabel.copyWith(
-              color: AppColors.textSecondary,
-              fontWeight: FontWeight.w500,
-            ),
+          Row(
+            children: [
+              Icon(Icons.people, color: color, size: 24),
+              const SizedBox(width: AppSpacing.sm),
+              Flexible(
+                child: Text(
+                  title,
+                  style: AppText.fieldLabel.copyWith(
+                    color: AppColors.textSecondary,
+                    fontWeight: FontWeight.w500,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: AppSpacing.md),
           Text(
@@ -816,9 +899,9 @@ class _StatCard extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.sm),
           Text(
-            percentage,
+            subtitle,
             style: AppText.small.copyWith(
-              color: percentageColor,
+              color: AppColors.success,
               fontWeight: FontWeight.w600,
             ),
           ),
