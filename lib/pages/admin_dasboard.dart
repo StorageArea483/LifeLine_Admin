@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:life_line_admin/pages/admin_authentication.dart';
 import 'package:life_line_admin/providers/admin_page_provider.dart';
 import 'package:life_line_admin/styles/styles.dart';
+import 'package:life_line_admin/widgets/global/page_message.dart';
+import 'package:life_line_admin/widgets/global/page_navigation.dart';
 import 'package:life_line_admin/widgets/nav_bar.dart';
 import 'package:life_line_admin/pages/show_ngo_info.dart';
 import 'package:life_line_admin/pages/show_victim_info.dart';
@@ -92,15 +94,8 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
     } catch (e) {
       if (mounted) {
         ref.read(adminPageProvider.notifier).setLoading(false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('An unexpected error occurred, please re-login'),
-            backgroundColor: AppColors.error,
-          ),
-        );
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const AdminAuthentication()),
-        );
+        pageMessage('An unexpected error occurred please try again.', context, AppColors.error);
+        pageNavigation(const AdminAuthentication(), context);
       }
     }
   }
@@ -244,26 +239,18 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
       if (mounted) {
         if (context.mounted) {
           Navigator.of(context).pop();
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                isApproved
-                    ? 'NGO approved successfully'
-                    : 'NGO request disapproved',
-              ),
-              backgroundColor: isApproved ? AppColors.success : AppColors.error,
-            ),
+          pageMessage(
+            isApproved
+                ? 'NGO approved successfully'
+                : 'NGO disapproved and removed successfully',
+            context,
+            isApproved ? AppColors.success : AppColors.error,
           );
         }
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('An error occurred. Please try again.'),
-            backgroundColor: AppColors.error,
-          ),
-        );
+        pageMessage('An error occurred. Please try again.', context, AppColors.error);
       }
     } finally {
       if (mounted) {
@@ -341,14 +328,7 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
                             }
                           } catch (e) {
                             if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'Error downloading document, please retry',
-                                  ),
-                                  backgroundColor: AppColors.error,
-                                ),
-                              );
+                              pageMessage('Error downloading document. Please try again.', context, AppColors.error);
                             }
                           }
                         },
@@ -536,9 +516,7 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
         'icon': Icons.people_outline,
         'onTap': () {
           if (mounted) {
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(builder: (context) => const ShowVictimInfo()),
-            );
+            pageNavigation(const ShowVictimInfo(), context);
           }
         },
       },
@@ -547,9 +525,7 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
         'icon': Icons.business_outlined,
         'onTap': () {
           if (mounted) {
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(builder: (context) => const ShowNgoInfo()),
-            );
+            pageNavigation(const ShowNgoInfo(), context);
           }
         },
       },

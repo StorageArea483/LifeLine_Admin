@@ -5,6 +5,8 @@ import 'package:life_line_admin/providers/security_question_provider.dart';
 import 'package:life_line_admin/styles/styles.dart';
 import 'package:life_line_admin/pages/admin_authentication.dart';
 import 'package:life_line_admin/widgets/global/change_password.dart';
+import 'package:life_line_admin/widgets/global/page_message.dart';
+import 'package:life_line_admin/widgets/global/page_navigation.dart';
 
 class SecurityQuestion extends ConsumerStatefulWidget {
   const SecurityQuestion({super.key});
@@ -49,29 +51,17 @@ class _SecurityQuestionState extends ConsumerState<SecurityQuestion> {
       if (mounted) {
         ref.read(securityPageProvider.notifier).state = false;
         if (querySnapshot.docs.isNotEmpty && mounted) {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (context) => const ChangePassword()),
-          );
+          pageNavigation(const ChangePassword(), context);
         } else {
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Incorrect security answer. Please try again.'),
-                backgroundColor: AppColors.error,
-              ),
-            );
+            pageMessage('Incorrect security answer. Please try again.', context, AppColors.error);
           }
         }
       }
     } catch (e) {
       if (mounted) {
         ref.read(securityPageProvider.notifier).state = false;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('An unexpected error occurred'),
-            backgroundColor: AppColors.error,
-          ),
-        );
+        pageMessage('An unexpected error occurred', context, AppColors.error);
       }
     }
   }
@@ -205,11 +195,7 @@ class _SecurityQuestionState extends ConsumerState<SecurityQuestion> {
                 child: GestureDetector(
                   onTap: () {
                     if (mounted) {
-                      Navigator.of(context).pushReplacement(
-                        MaterialPageRoute(
-                          builder: (context) => const AdminAuthentication(),
-                        ),
-                      );
+                      pageNavigation(const AdminAuthentication(), context);
                     }
                   },
                   child: const Row(

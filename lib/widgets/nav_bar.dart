@@ -3,6 +3,7 @@ import 'package:life_line_admin/pages/settings_screen.dart';
 import 'package:life_line_admin/styles/styles.dart';
 import 'package:life_line_admin/pages/admin_dasboard.dart';
 import 'package:life_line_admin/pages/admin_authentication.dart';
+import 'package:life_line_admin/widgets/global/page_navigation.dart';
 
 class NavBar extends StatefulWidget {
   const NavBar({super.key});
@@ -99,14 +100,7 @@ class _NavBarState extends State<NavBar> {
                             cursor: SystemMouseCursors.click,
                             child: GestureDetector(
                               onTap: () {
-                                if (mounted) {
-                                  Navigator.of(context).pushReplacement(
-                                    MaterialPageRoute(
-                                      builder: (context) =>
-                                          const SettingsScreen(),
-                                    ),
-                                  );
-                                }
+                                pageNavigation(const SettingsScreen(), context);
                               },
                               child: const Text(
                                 'Settings',
@@ -120,12 +114,7 @@ class _NavBarState extends State<NavBar> {
                             child: ElevatedButton(
                               onPressed: () {
                                 if (mounted) {
-                                  Navigator.of(context).pushReplacement(
-                                    MaterialPageRoute(
-                                      builder: (context) =>
-                                          const AdminAuthentication(),
-                                    ),
-                                  );
+                                  pageNavigation(const AdminAuthentication(), context);
                                 }
                               },
                               style: AppButtons.submit,
@@ -193,11 +182,7 @@ Widget buildDrawer(BuildContext context) {
             title: const Text('Dashboard', style: AppText.fieldLabel),
             onTap: () {
               if (context.mounted) {
-                Navigator.of(context).pushReplacement(
-                  MaterialPageRoute(
-                    builder: (context) => const AdminDashboard(),
-                  ),
-                );
+                pageNavigation(const AdminDashboard(), context);
               }
             },
           ),
@@ -222,13 +207,6 @@ Widget buildDrawer(BuildContext context) {
               }
             },
           ),
-          ListTile(
-            leading: const Icon(Icons.settings, color: AppColors.primaryMaroon),
-            title: const Text('Settings', style: AppText.fieldLabel),
-            onTap: () {
-              Navigator.pop(context);
-            },
-          ),
           const Divider(),
           Padding(
             padding: const EdgeInsets.all(AppSpacing.lg),
@@ -239,11 +217,7 @@ Widget buildDrawer(BuildContext context) {
                 onPressed: () {
                   if (context.mounted) {
                     Navigator.pop(context);
-                    Navigator.of(context).pushReplacement(
-                      MaterialPageRoute(
-                        builder: (context) => const AdminAuthentication(),
-                      ),
-                    );
+                    pageNavigation(const AdminAuthentication(), context);
                   }
                 },
                 style: AppButtons.submit,

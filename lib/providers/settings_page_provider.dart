@@ -8,7 +8,6 @@ class SettingsPageNotifier extends StateNotifier<SettingsPageState> {
           autoApprovalMode: false,
           sosSystemEnabled: false,
           systemMaintenance: false,
-          botEnabled: false,
         ),
       );
 
@@ -27,10 +26,6 @@ class SettingsPageNotifier extends StateNotifier<SettingsPageState> {
   void setSystemMaintenance(bool systemMaintenance) {
     state = state.copyWith(systemMaintenance: systemMaintenance);
   }
-
-  void setBotAccessEnabled(bool botEnabled) {
-    state = state.copyWith(botEnabled: botEnabled);
-  }
 }
 
 class SettingsPageState {
@@ -38,14 +33,12 @@ class SettingsPageState {
   final bool autoApprovalMode;
   final bool sosSystemEnabled;
   final bool systemMaintenance;
-  final bool botEnabled;
 
   SettingsPageState({
     required this.isLoading,
     required this.autoApprovalMode,
     required this.sosSystemEnabled,
     required this.systemMaintenance,
-    required this.botEnabled,
   });
 
   SettingsPageState copyWith({
@@ -53,14 +46,12 @@ class SettingsPageState {
     bool? autoApprovalMode,
     bool? sosSystemEnabled,
     bool? systemMaintenance,
-    bool? botEnabled,
   }) {
     return SettingsPageState(
       isLoading: isLoading ?? this.isLoading,
       autoApprovalMode: autoApprovalMode ?? this.autoApprovalMode,
       sosSystemEnabled: sosSystemEnabled ?? this.sosSystemEnabled,
       systemMaintenance: systemMaintenance ?? this.systemMaintenance,
-      botEnabled: botEnabled ?? this.botEnabled,
     );
   }
 }
@@ -70,4 +61,7 @@ final settingsPageProvider =
       return SettingsPageNotifier();
     });
 
-final settingsCardPageProvider = StateProvider<bool>((ref) => false);
+// Family provider to track each settings card's expanded state independently
+final settingsCardExpandedProvider = StateProvider.family<bool, String>(
+  (ref, cardId) => false,
+);

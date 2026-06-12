@@ -22,7 +22,6 @@ class SettingsCard extends ConsumerStatefulWidget {
 }
 
 class _SettingsCardState extends ConsumerState<SettingsCard> {
-  bool isExpanded = false;
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -44,8 +43,16 @@ class _SettingsCardState extends ConsumerState<SettingsCard> {
             child: GestureDetector(
               onTap: () {
                 if (mounted) {
-                  ref.read(settingsCardPageProvider.notifier).state =
-                      !isExpanded;
+                  // Toggle the expanded state for this specific card
+                  final currentState = ref.read(
+                    settingsCardExpandedProvider(widget.title),
+                  );
+                  ref
+                          .read(
+                            settingsCardExpandedProvider(widget.title).notifier,
+                          )
+                          .state =
+                      !currentState;
                 }
               },
               child: Container(
@@ -75,7 +82,9 @@ class _SettingsCardState extends ConsumerState<SettingsCard> {
                     Consumer(
                       builder: (context, ref, child) {
                         if (!mounted) return const SizedBox.shrink();
-                        final isExpanded = ref.watch(settingsCardPageProvider);
+                        final isExpanded = ref.watch(
+                          settingsCardExpandedProvider(widget.title),
+                        );
                         return AnimatedRotation(
                           turns: isExpanded ? 0.5 : 0,
                           duration: const Duration(milliseconds: 200),
@@ -95,7 +104,9 @@ class _SettingsCardState extends ConsumerState<SettingsCard> {
           Consumer(
             builder: (context, ref, child) {
               if (!mounted) return const SizedBox.shrink();
-              final isExpanded = ref.watch(settingsCardPageProvider);
+              final isExpanded = ref.watch(
+                settingsCardExpandedProvider(widget.title),
+              );
               return AnimatedContainer(
                 duration: const Duration(milliseconds: 300),
                 height: isExpanded ? null : 0,

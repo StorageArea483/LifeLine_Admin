@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:life_line_admin/providers/admin_auth_provider.dart';
 import 'package:life_line_admin/styles/styles.dart';
 import 'package:life_line_admin/pages/admin_dasboard.dart';
+import 'package:life_line_admin/widgets/global/page_message.dart';
+import 'package:life_line_admin/widgets/global/page_navigation.dart';
 import 'package:life_line_admin/widgets/global/security_question.dart';
 
 class AdminAuthentication extends ConsumerStatefulWidget {
@@ -45,30 +47,18 @@ class _AdminAuthenticationState extends ConsumerState<AdminAuthentication> {
           ref.read(adminAuthPageProvider.notifier).setLoading(false);
           if (querySnapshot.docs.isNotEmpty) {
             if (mounted) {
-              Navigator.of(context).pushReplacement(
-                MaterialPageRoute(builder: (context) => const AdminDashboard()),
-              );
+              pageNavigation(const AdminDashboard(), context);
             }
           } else {
             if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Invalid ID or password. Please try again.'),
-                  backgroundColor: AppColors.error,
-                ),
-              );
+              pageMessage("Invalid ID or password. Please try again.", context, AppColors.error);
             }
           }
         }
       } catch (e) {
         if (mounted) {
           ref.read(adminAuthPageProvider.notifier).setLoading(false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('An unexpected error occurred, please try again'),
-              backgroundColor: AppColors.error,
-            ),
-          );
+          pageMessage("An unexpected error occurred, please try again.", context, AppColors.error);
         }
       }
     }
@@ -278,11 +268,7 @@ class _AdminAuthenticationState extends ConsumerState<AdminAuthentication> {
                 child: GestureDetector(
                   onTap: () {
                     if (mounted) {
-                      Navigator.of(context).pushReplacement(
-                        MaterialPageRoute(
-                          builder: (context) => const SecurityQuestion(),
-                        ),
-                      );
+                      pageNavigation(const SecurityQuestion(), context);
                     }
                   },
                   child: const Text('Forgot Password?', style: AppText.link),

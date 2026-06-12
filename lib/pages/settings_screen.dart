@@ -2,6 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:life_line_admin/providers/settings_page_provider.dart';
 import 'package:life_line_admin/styles/styles.dart';
+import 'package:life_line_admin/widgets/global/page_message.dart';
+import 'package:life_line_admin/widgets/global/page_navigation.dart';
 import 'package:life_line_admin/widgets/nav_bar.dart';
 import 'package:life_line_admin/pages/admin_dasboard.dart';
 import 'package:life_line_admin/widgets/settings_card_state.dart';
@@ -50,7 +52,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         final autoApproved = settingsData['auto approved'] ?? false;
         final sosDisabled = settingsData['sos disabled'] ?? false;
         final maintenance = settingsData['maintenance'] ?? false;
-        final botAccess = settingsData['bot access'] ?? false;
 
         if (mounted) {
           ref
@@ -62,19 +63,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ref
               .read(settingsPageProvider.notifier)
               .setSystemMaintenance(maintenance);
-          ref
-              .read(settingsPageProvider.notifier)
-              .setBotAccessEnabled(botAccess);
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('An unexpected error occurred'),
-            backgroundColor: AppColors.warning,
-          ),
-        );
+        pageMessage('An unexpected error occurred', context, AppColors.error);
       }
     } finally {
       if (mounted) {
@@ -203,11 +196,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               child: GestureDetector(
                 onTap: () {
                   if (mounted) {
-                    Navigator.of(context).pushReplacement(
-                      MaterialPageRoute(
-                        builder: (context) => const AdminDashboard(),
-                      ),
-                    );
+                    pageNavigation(const AdminDashboard(), context);
                   }
                 },
                 child: const Icon(
@@ -260,8 +249,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ),
         SizedBox(height: isMobile ? AppSpacing.lg : AppSpacing.xl),
         _buildEmergencySystemSection(isMobile),
-        SizedBox(height: isMobile ? AppSpacing.lg : AppSpacing.xl),
-        _buildBotControlSection(isMobile),
       ],
     );
   }
@@ -313,33 +300,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     });
                     if (mounted) {
                       // ignore: use_build_context_synchronously
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Password updated successfully'),
-                          backgroundColor: AppColors.success,
-                        ),
-                      );
+                      pageMessage('Password updated successfully', context, AppColors.success);
                     }
                   } else {
                     if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Password was not updated, please try again',
-                          ),
-                          backgroundColor: AppColors.error,
-                        ),
-                      );
+                      pageMessage('Failed to update password', context, AppColors.error);
                     }
                   }
                 } catch (e) {
                   if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('An unexpected error occurred'),
-                        backgroundColor: AppColors.error,
-                      ),
-                    );
+                    pageMessage('An unexpected error occurred', context, AppColors.error);
                   }
                 } finally {
                   if (mounted) {
@@ -519,14 +489,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             } else {
                               if (mounted) {
                                 // ignore: use_build_context_synchronously
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      'Failed to process your request',
-                                    ),
-                                    backgroundColor: AppColors.error,
-                                  ),
-                                );
+                                pageMessage('Failed to process your request', context, AppColors.error);
                               }
                             }
                             if (mounted) {
@@ -537,12 +500,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           } catch (e) {
                             if (mounted) {
                               // ignore: use_build_context_synchronously
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('An unexpected error occurred'),
-                                  backgroundColor: AppColors.error,
-                                ),
-                              );
+                              pageMessage('An unexpected error occurred', context, AppColors.error);
                             }
                           } finally {
                             if (mounted) {
@@ -557,56 +515,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       isCompact: true,
                     ),
                   ),
-                ],
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBotControlSection(bool isMobile) {
-    return SettingsCard(
-      title: 'Bot Access',
-      image: 'assets/images/robo_head.webp',
-      isMobile: isMobile,
-      child: Column(
-        children: [
-          Consumer(
-            builder: (context, ref, child) {
-              if (!mounted) return const SizedBox.shrink();
-              final operatorsEnabled = ref.watch(
-                settingsPageProvider.select((v) => v.botEnabled),
-              );
-              return Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Enable Emergency Assistant',
-                          style: AppText.fieldLabel.copyWith(
-                            fontSize: isMobile ? 14 : 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          operatorsEnabled
-                              ? 'Assistant access is disabled'
-                              : 'Assistant access is enabled',
-                          style: AppText.small.copyWith(
-                            fontSize: isMobile ? 12 : 14,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.lg),
-                  _buildToggleSwitch(operatorsEnabled, 2),
                 ],
               );
             },
@@ -677,12 +585,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 });
               } else {
                 if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Failed to process your request'),
-                      backgroundColor: AppColors.error,
-                    ),
-                  );
+                  pageMessage('Failed to process your request', context, AppColors.error);
                 }
               }
 
@@ -693,12 +596,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               }
             } catch (e) {
               if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('An unexpected error occurred'),
-                    backgroundColor: AppColors.error,
-                  ),
-                );
+                pageMessage('An unexpected error occurred', context, AppColors.error);
               }
             } finally {
               if (mounted) {
@@ -719,12 +617,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 });
               } else {
                 if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Failed to process your request'),
-                      backgroundColor: AppColors.error,
-                    ),
-                  );
+                  pageMessage('Failed to process your request', context, AppColors.error);
                 }
               }
 
@@ -735,12 +628,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               }
             } catch (e) {
               if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('An unexpected error occurred'),
-                    backgroundColor: AppColors.error,
-                  ),
-                );
+                pageMessage('An unexpected error occurred', context, AppColors.error);
               }
             } finally {
               if (mounted) {
@@ -748,50 +636,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               }
             }
             // End SOS system toggle
-          } else {
-            if (mounted) {
-              ref.read(settingsPageProvider.notifier).setLoading(true);
-              try {
-                final querySnapshot = await FirebaseFirestore.instance
-                    .collection('settings')
-                    .get();
-
-                if (querySnapshot.docs.isNotEmpty) {
-                  // Document exists, update it
-                  await querySnapshot.docs.first.reference.update({
-                    'bot access': !value,
-                  });
-                } else {
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Failed to process your request'),
-                        backgroundColor: AppColors.error,
-                      ),
-                    );
-                  }
-                }
-
-                if (mounted) {
-                  ref
-                      .read(settingsPageProvider.notifier)
-                      .setBotAccessEnabled(!value);
-                }
-              } catch (e) {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('An unexpected error occurred'),
-                      backgroundColor: AppColors.error,
-                    ),
-                  );
-                }
-              } finally {
-                if (mounted) {
-                  ref.read(settingsPageProvider.notifier).setLoading(false);
-                }
-              }
-            }
           }
         },
         child: AnimatedContainer(

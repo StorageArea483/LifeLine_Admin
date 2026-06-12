@@ -6,6 +6,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:life_line_admin/providers/victim_info_provider.dart';
 import 'package:life_line_admin/styles/styles.dart';
+import 'package:life_line_admin/widgets/global/page_message.dart';
+import 'package:life_line_admin/widgets/global/page_navigation.dart';
 import 'package:life_line_admin/widgets/nav_bar.dart';
 import 'package:life_line_admin/pages/admin_dasboard.dart';
 
@@ -64,15 +66,8 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
     } catch (e) {
       if (mounted) {
         ref.read(victimPageProvider.notifier).setLoading(false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Error fetching victims, please try again'),
-            backgroundColor: AppColors.error,
-          ),
-        );
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const AdminDashboard()),
-        );
+        pageMessage('Error fetching victims, please try again', context, AppColors.error);
+        pageNavigation(const AdminDashboard(), context);
       }
     }
   }
@@ -134,22 +129,12 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
       }
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('User removed successfully'),
-            backgroundColor: AppColors.success,
-          ),
-        );
+        pageMessage('User removed successfully', context, AppColors.success);
       }
     } catch (e) {
       if (mounted) {
         ref.read(victimPageProvider.notifier).setLoading(false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Error removing user, please try again'),
-            backgroundColor: AppColors.error,
-          ),
-        );
+        pageMessage('Error removing user, please try again', context, AppColors.error);
       }
     }
   }
@@ -176,12 +161,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
     } catch (e) {
       if (mounted) {
         ref.read(victimPageProvider.notifier).setLoading(false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Error blocking User, please retry'),
-            backgroundColor: AppColors.error,
-          ),
-        );
+        pageMessage('Error blocking User, please retry', context, AppColors.error);
       }
     }
   }
@@ -208,12 +188,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
     } catch (e) {
       if (mounted) {
         ref.read(victimPageProvider.notifier).setLoading(false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Error blocking User, please retry'),
-            backgroundColor: AppColors.error,
-          ),
-        );
+        pageMessage('Errorblocking User, please retry', context, AppColors.error);
       }
     }
   }
@@ -337,11 +312,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
               child: GestureDetector(
                 onTap: () {
                   if (mounted) {
-                    Navigator.of(context).pushReplacement(
-                      MaterialPageRoute(
-                        builder: (context) => const AdminDashboard(),
-                      ),
-                    );
+                    pageNavigation(const AdminDashboard(), context);
                   }
                 },
                 child: const Icon(

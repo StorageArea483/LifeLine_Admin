@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:life_line_admin/providers/change_pass_provider.dart';
 import 'package:life_line_admin/styles/styles.dart';
 import 'package:life_line_admin/pages/admin_authentication.dart';
+import 'package:life_line_admin/widgets/global/page_message.dart';
+import 'package:life_line_admin/widgets/global/page_navigation.dart';
 
 class ChangePassword extends ConsumerStatefulWidget {
   const ChangePassword({super.key});
@@ -61,12 +63,7 @@ class _ChangePasswordState extends ConsumerState<ChangePassword> {
       if (querySnapshot.docs.isEmpty) {
         if (mounted) {
           ref.read(changePassProvider.notifier).setIsLoading(false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Admin record not found'),
-              backgroundColor: AppColors.error,
-            ),
-          );
+          pageMessage('Admin record not found', context, AppColors.error);
         }
         return;
       }
@@ -78,22 +75,12 @@ class _ChangePasswordState extends ConsumerState<ChangePassword> {
 
       if (mounted) {
         ref.read(changePassProvider.notifier).setIsLoading(false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Password updated successfully!'),
-            backgroundColor: AppColors.success,
-          ),
-        );
+        pageMessage('Password updated successfully', context, AppColors.success);
       }
     } catch (e) {
       if (mounted) {
         ref.read(changePassProvider.notifier).setIsLoading(false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Error updating password'),
-            backgroundColor: AppColors.error,
-          ),
-        );
+        pageMessage('Error updating password', context, AppColors.error);
       }
     }
   }
@@ -285,11 +272,7 @@ class _ChangePasswordState extends ConsumerState<ChangePassword> {
                 child: GestureDetector(
                   onTap: () {
                     if (mounted) {
-                      Navigator.of(context).pushReplacement(
-                        MaterialPageRoute(
-                          builder: (context) => const AdminAuthentication(),
-                        ),
-                      );
+                      pageNavigation(const AdminAuthentication(), context);
                     }
                   },
                   child: const Text('Back to Login', style: AppText.link),
