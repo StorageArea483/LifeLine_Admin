@@ -48,21 +48,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       if (querySnapshot.docs.isNotEmpty) {
         final settingsData = querySnapshot.docs.first.data();
 
-        // Fetch and set all settings values
-        final autoApproved = settingsData['auto approved'] ?? false;
-        final sosDisabled = settingsData['sos disabled'] ?? false;
-        final maintenance = settingsData['maintenance'] ?? false;
-
         if (mounted) {
           ref
               .read(settingsPageProvider.notifier)
-              .setAutoApprovalMode(autoApproved);
+              .setAutoApprovalMode(settingsData['auto approved'] ?? false);
           ref
               .read(settingsPageProvider.notifier)
-              .setSosSystemEnabled(sosDisabled);
+              .setSosSystemEnabled(settingsData['sos disabled'] ?? false);
           ref
               .read(settingsPageProvider.notifier)
-              .setSystemMaintenance(maintenance);
+              .setSystemMaintenance(settingsData['maintenance'] ?? false);
         }
       }
     } catch (e) {

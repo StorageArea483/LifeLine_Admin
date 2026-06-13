@@ -1,9 +1,9 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:life_line_admin/pages/admin_authentication.dart';
+import 'package:life_line_admin/pages/show_rescuer_info.dart';
 import 'package:life_line_admin/providers/admin_page_provider.dart';
 import 'package:life_line_admin/styles/styles.dart';
 import 'package:life_line_admin/widgets/global/page_message.dart';
@@ -21,10 +21,6 @@ class AdminDashboard extends ConsumerStatefulWidget {
 }
 
 class _AdminDashboardState extends ConsumerState<AdminDashboard> {
-  StreamSubscription? ngoSubscription;
-  StreamSubscription? settingsSubscription;
-  StreamSubscription? victimSubscription;
-  StreamSubscription? ngoCountSubscription;
   FirebaseFirestore? _ngoFirestore;
   FirebaseFirestore? _victimFirestore;
 
@@ -49,10 +45,6 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
 
   @override
   void dispose() {
-    ngoSubscription?.cancel();
-    settingsSubscription?.cancel();
-    victimSubscription?.cancel();
-    ngoCountSubscription?.cancel();
     super.dispose();
   }
 
@@ -84,9 +76,9 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
       );
       _victimFirestore = FirebaseFirestore.instanceFor(app: victimApp);
 
-      _checkNgoRegistration();
-      _listenToVictimCount();
-      _listenToNgoCount();
+      await _fetchNgoRequests();
+      await _fetchVictimCount();
+      await _fetchNgoCount();
 
       if (mounted) {
         ref.read(adminPageProvider.notifier).setLoading(false);
@@ -94,122 +86,132 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
     } catch (e) {
       if (mounted) {
         ref.read(adminPageProvider.notifier).setLoading(false);
-        pageMessage('An unexpected error occurred please try again.', context, AppColors.error);
+        pageMessage(
+          'An unexpected error occurred please try again.',
+          context,
+          AppColors.error,
+        );
         pageNavigation(const AdminAuthentication(), context);
       }
     }
   }
 
-  void _checkNgoRegistration() {
+  Future<void> _fetchNgoRequests() async {
     if (_ngoFirestore == null) return;
+
     try {
-      settingsSubscription?.cancel();
-      settingsSubscription = FirebaseFirestore.instance
+      // Check settings for auto approval
+      final settingsSnapshot = await FirebaseFirestore.instance
           .collection('settings')
-          .snapshots()
-          .listen((settingsSnapshot) {
-            if (!mounted) return;
+          .get();
 
-            bool autoApprovedValue = false;
+      bool autoApprovedValue = false;
 
-            if (settingsSnapshot.docs.isNotEmpty) {
-              final settingsData = settingsSnapshot.docs.first.data();
-              autoApprovedValue = settingsData['auto approved'] ?? false;
-            }
+      if (settingsSnapshot.docs.isNotEmpty) {
+        final settingsData = settingsSnapshot.docs.first.data();
+        autoApprovedValue = settingsData['auto approved'] ?? false;
+      }
 
-            // If auto approval is ON, clear pending requests immediately
-            if (autoApprovedValue) {
-              if (mounted) {
-                ref.read(adminPageProvider.notifier).setNgoRequests([]);
-              }
-              return;
-            }
+      // If auto approval is ON, clear pending requests
+      if (autoApprovedValue) {
+        if (mounted) {
+          ref.read(adminPageProvider.notifier).setNgoRequests([]);
+        }
+        return;
+      }
 
-            ngoSubscription?.cancel();
+      // If auto approval is OFF, fetch unapproved NGOs
+      final snapshot = await _ngoFirestore!
+          .collection('ngo-info-database')
+          .where('approved', isEqualTo: false)
+          .get();
 
-            // If auto approval is OFF, listen to unapproved NGOs from life-line-ngo
-            ngoSubscription = _ngoFirestore!
-                .collection('ngo-info-database')
-                .where('approved', isEqualTo: false)
-                .snapshots()
-                .listen((snapshot) {
-                  if (!mounted) return;
+      if (!mounted) return;
 
-                  final requests = snapshot.docs.map((doc) {
-                    final data = doc.data();
-                    return {
-                      'docId': doc.id,
-                      'name': data['ngoName'] ?? 'Unknown NGO',
-                      'logo': data['ngoLogo'] ?? '',
-                      'directorName': data['directorName'] ?? '',
-                      'projectManager': data['projectManager'] ?? '',
-                      'registrationNumber': data['registrationNumber'] ?? '',
-                      'selectedProgram': data['selectedProgram'] ?? '',
-                      'phoneNumber': data['phone'] ?? '',
-                      'email': data['email'] ?? '',
-                      'address': data['address'] ?? '',
-                      'geographicalCoverage':
-                          data['geographicalCoverage'] ?? '',
-                      'pastExperience': data['pastExperience'] ?? '',
-                      'documentUrl': data['documentUrl'] ?? '',
-                      'approved': false,
-                      'branchName': data['branchName'] ?? '',
-                    };
-                  }).toList();
+      final requests = snapshot.docs.map((doc) {
+        final data = doc.data();
+        return {
+          'docId': doc.id,
+          'name': data['ngoName'] ?? 'Unknown NGO',
+          'logo': data['ngoLogo'] ?? '',
+          'directorName': data['directorName'] ?? '',
+          'projectManager': data['projectManager'] ?? '',
+          'registrationNumber': data['registrationNumber'] ?? '',
+          'selectedProgram': data['selectedProgram'] ?? '',
+          'phoneNumber': data['phone'] ?? '',
+          'email': data['email'] ?? '',
+          'address': data['address'] ?? '',
+          'geographicalCoverage': data['geographicalCoverage'] ?? '',
+          'pastExperience': data['pastExperience'] ?? '',
+          'documentUrl': data['documentUrl'] ?? '',
+          'approved': false,
+          'branchName': data['branchName'] ?? '',
+        };
+      }).toList();
 
-                  if (mounted) {
-                    ref
-                        .read(adminPageProvider.notifier)
-                        .setNgoRequests(requests);
-                  }
-                });
-          });
+      if (mounted) {
+        ref.read(adminPageProvider.notifier).setNgoRequests(requests);
+      }
     } catch (e) {
       rethrow;
     }
   }
 
-  void _listenToNgoCount() {
+  Future<void> _fetchNgoCount() async {
     if (_ngoFirestore == null) return;
 
     try {
-      ngoCountSubscription?.cancel();
-      ngoCountSubscription = _ngoFirestore!
+      final snapshot = await _ngoFirestore!
           .collection('ngo-info-database')
-          .snapshots()
-          .listen((snapshot) {
-            if (!mounted) return;
+          .get();
 
-            final ngoCount = snapshot.docs.length;
+      if (!mounted) return;
 
-            if (mounted) {
-              ref.read(adminPageProvider.notifier).setNgoCount(ngoCount);
-            }
-          });
+      final ngoCount = snapshot.docs.length;
+
+      if (mounted) {
+        ref.read(adminPageProvider.notifier).setNgoCount(ngoCount);
+      }
     } catch (e) {
       rethrow;
     }
   }
 
-  void _listenToVictimCount() {
+  Future<void> _fetchVictimCount() async {
     if (_victimFirestore == null) return;
 
     try {
-      victimSubscription?.cancel();
-      victimSubscription = _victimFirestore!
-          .collection('users')
-          .snapshots()
-          .listen((snapshot) {
-            if (!mounted) return;
+      final snapshot = await _victimFirestore!.collection('users').get();
 
-            final victimCount = snapshot.docs.length;
+      if (!mounted) return;
 
-            if (mounted) {
-              ref.read(adminPageProvider.notifier).setVictimCount(victimCount);
-            }
-          });
+      final victimCount = snapshot.docs.length;
+
+      if (mounted) {
+        ref.read(adminPageProvider.notifier).setVictimCount(victimCount);
+      }
     } catch (e) {
       rethrow;
+    }
+  }
+
+  Future<void> refreshData() async {
+    if (mounted) {
+      ref.read(adminPageProvider.notifier).setLoading(true);
+    }
+
+    try {
+      await _fetchNgoRequests();
+      await _fetchVictimCount();
+      await _fetchNgoCount();
+    } catch (e) {
+      if (mounted) {
+        pageMessage('Error refreshing data', context, AppColors.error);
+      }
+    } finally {
+      if (mounted) {
+        ref.read(adminPageProvider.notifier).setLoading(false);
+      }
     }
   }
 
@@ -246,11 +248,17 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
             context,
             isApproved ? AppColors.success : AppColors.error,
           );
+          // Refresh data after action
+          await refreshData();
         }
       }
     } catch (e) {
       if (context.mounted) {
-        pageMessage('An error occurred. Please try again.', context, AppColors.error);
+        pageMessage(
+          'An error occurred. Please try again.',
+          context,
+          AppColors.error,
+        );
       }
     } finally {
       if (mounted) {
@@ -328,7 +336,11 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
                             }
                           } catch (e) {
                             if (context.mounted) {
-                              pageMessage('Error downloading document. Please try again.', context, AppColors.error);
+                              pageMessage(
+                                'Error downloading document. Please try again.',
+                                context,
+                                AppColors.error,
+                              );
                             }
                           }
                         },
@@ -467,7 +479,63 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _buildActionButtons(context, isCompact),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: _buildActionButtons(
+                                    context,
+                                    isCompact,
+                                  ),
+                                ),
+                                if (!isCompact) ...[
+                                  const SizedBox(width: AppSpacing.lg),
+                                  MouseRegion(
+                                    cursor: SystemMouseCursors.click,
+                                    child: GestureDetector(
+                                      onTap: refreshData,
+                                      child: Container(
+                                        padding: const EdgeInsets.all(
+                                          AppSpacing.md,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.primaryMaroon,
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                        ),
+                                        child: const Icon(
+                                          Icons.refresh,
+                                          color: Colors.white,
+                                          size: 24,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                            if (isCompact) ...[
+                              const SizedBox(height: AppSpacing.lg),
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton.icon(
+                                  onPressed: refreshData,
+                                  icon: const Icon(Icons.refresh, size: 20),
+                                  label: const Text('Refresh Data'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppColors.primaryMaroon,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: AppSpacing.md,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                             const SizedBox(height: AppSpacing.xxl),
                             _buildStatusSection(isMobile, isCompact),
                             const SizedBox(height: AppSpacing.xl),
@@ -515,24 +583,22 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
         'title': 'View Users',
         'icon': Icons.people_outline,
         'onTap': () {
-          if (mounted) {
-            pageNavigation(const ShowVictimInfo(), context);
-          }
+          pageNavigation(const ShowVictimInfo(), context);
         },
       },
       {
         'title': 'View NGOs',
         'icon': Icons.business_outlined,
         'onTap': () {
-          if (mounted) {
-            pageNavigation(const ShowNgoInfo(), context);
-          }
+          pageNavigation(const ShowNgoInfo(), context);
         },
       },
       {
         'title': 'View Rescuers',
         'icon': Icons.volunteer_activism_outlined,
-        'onTap': () {},
+        'onTap': () {
+          pageNavigation(const ShowRescuerInfo(), context);
+        },
       },
     ];
 

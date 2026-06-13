@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -21,7 +19,6 @@ class ShowVictimInfo extends ConsumerStatefulWidget {
 class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
   final TextEditingController _searchController = TextEditingController();
   FirebaseFirestore? _victimFirestore;
-  StreamSubscription? victimSubscription;
 
   // life-line-victim database credentials
   static const FirebaseOptions _victimFirebaseOptions = FirebaseOptions(
@@ -36,7 +33,6 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
   @override
   void dispose() {
     _searchController.dispose();
-    victimSubscription?.cancel();
     super.dispose();
   }
 
@@ -59,51 +55,69 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
         options: _victimFirebaseOptions,
       );
       _victimFirestore = FirebaseFirestore.instanceFor(app: secondaryApp);
-      _listenToVictims();
+      await _fetchVictims();
       if (mounted) {
         ref.read(victimPageProvider.notifier).setLoading(false);
       }
     } catch (e) {
       if (mounted) {
         ref.read(victimPageProvider.notifier).setLoading(false);
-        pageMessage('Error fetching victims, please try again', context, AppColors.error);
+        pageMessage(
+          'Error fetching victims, please try again',
+          context,
+          AppColors.error,
+        );
         pageNavigation(const AdminDashboard(), context);
       }
     }
   }
 
-  void _listenToVictims() {
+  Future<void> _fetchVictims() async {
     if (_victimFirestore == null) return;
 
     try {
-      victimSubscription?.cancel();
-      victimSubscription = _victimFirestore!
-          .collection('users')
-          .snapshots()
-          .listen((snapshot) {
-            if (!mounted) return;
+      final snapshot = await _victimFirestore!.collection('users').get();
 
-            final allVictims = snapshot.docs.map((doc) => doc.data()).toList();
+      if (!mounted) return;
 
-            final searchTerm = _searchController.text;
+      final allVictims = snapshot.docs.map((doc) => doc.data()).toList();
 
-            List<Map<String, dynamic>> finalList;
+      final searchTerm = _searchController.text;
 
-            if (searchTerm.isEmpty) {
-              finalList = allVictims;
-            } else {
-              finalList = allVictims.where((victim) {
-                final name = (victim['name'] ?? '').toString();
-                return name.toLowerCase().contains(searchTerm.toLowerCase());
-              }).toList();
-            }
+      List<Map<String, dynamic>> finalList;
 
-            if (mounted) {
-              ref.read(victimPageProvider.notifier).setVictims(finalList);
-            }
-          });
+      if (searchTerm.isEmpty) {
+        finalList = allVictims;
+      } else {
+        finalList = allVictims.where((victim) {
+          final name = (victim['name'] ?? '').toString();
+          return name.toLowerCase().contains(searchTerm.toLowerCase());
+        }).toList();
+      }
+
+      if (mounted) {
+        ref.read(victimPageProvider.notifier).setVictims(finalList);
+      }
     } catch (e) {
       rethrow;
+    }
+  }
+
+  Future<void> refreshVictims() async {
+    if (mounted) {
+      ref.read(victimPageProvider.notifier).setLoading(true);
+    }
+
+    try {
+      await _fetchVictims();
+    } catch (e) {
+      if (mounted) {
+        pageMessage('Error refreshing user data', context, AppColors.error);
+      }
+    } finally {
+      if (mounted) {
+        ref.read(victimPageProvider.notifier).setLoading(false);
+      }
     }
   }
 
@@ -126,15 +140,17 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
 
       if (mounted) {
         ref.read(victimPageProvider.notifier).setLoading(false);
-      }
-
-      if (mounted) {
         pageMessage('User removed successfully', context, AppColors.success);
+        await _fetchVictims(); // Refresh data after removal
       }
     } catch (e) {
       if (mounted) {
         ref.read(victimPageProvider.notifier).setLoading(false);
-        pageMessage('Error removing user, please try again', context, AppColors.error);
+        pageMessage(
+          'Error removing user, please try again',
+          context,
+          AppColors.error,
+        );
       }
     }
   }
@@ -155,13 +171,20 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
       for (var doc in querySnapshot.docs) {
         await doc.reference.update({'blocked': true});
       }
+
       if (mounted) {
         ref.read(victimPageProvider.notifier).setLoading(false);
+        pageMessage('User blocked successfully', context, AppColors.success);
+        await _fetchVictims(); // Refresh data after blocking
       }
     } catch (e) {
       if (mounted) {
         ref.read(victimPageProvider.notifier).setLoading(false);
-        pageMessage('Error blocking User, please retry', context, AppColors.error);
+        pageMessage(
+          'Error blocking User, please retry',
+          context,
+          AppColors.error,
+        );
       }
     }
   }
@@ -182,13 +205,20 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
       for (var doc in querySnapshot.docs) {
         await doc.reference.update({'blocked': false});
       }
+
       if (mounted) {
         ref.read(victimPageProvider.notifier).setLoading(false);
+        pageMessage('User unblocked successfully', context, AppColors.success);
+        await _fetchVictims(); // Refresh data after unblocking
       }
     } catch (e) {
       if (mounted) {
         ref.read(victimPageProvider.notifier).setLoading(false);
-        pageMessage('Errorblocking User, please retry', context, AppColors.error);
+        pageMessage(
+          'Errorblocking User, please retry',
+          context,
+          AppColors.error,
+        );
       }
     }
   }
@@ -254,6 +284,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
             ),
             Consumer(
               builder: (context, ref, child) {
+                if (!mounted) return const SizedBox.shrink();
                 final isLoading = ref.watch(
                   victimPageProvider.select((v) => v.isLoading),
                 );
@@ -408,7 +439,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                       width: double.infinity,
                       height: 48,
                       child: ElevatedButton(
-                        onPressed: _listenToVictims,
+                        onPressed: refreshVictims,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primaryMaroon,
                           foregroundColor: Colors.white,
@@ -463,7 +494,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                     SizedBox(
                       height: 48,
                       child: ElevatedButton(
-                        onPressed: _listenToVictims,
+                        onPressed: refreshVictims,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primaryMaroon,
                           foregroundColor: Colors.white,
@@ -628,13 +659,15 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                             horizontal: AppSpacing.md,
                             vertical: AppSpacing.lg,
                           ),
-                          child: Text(
-                            'Remove User',
-                            style: AppText.formDescription.copyWith(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.textSecondary,
-                              letterSpacing: 0.5,
+                          child: Center(
+                            child: Text(
+                              'Remove User',
+                              style: AppText.formDescription.copyWith(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textSecondary,
+                                letterSpacing: 0.5,
+                              ),
                             ),
                           ),
                         ),
@@ -646,13 +679,15 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                             horizontal: AppSpacing.md,
                             vertical: AppSpacing.lg,
                           ),
-                          child: Text(
-                            'Actions',
-                            style: AppText.formDescription.copyWith(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.textSecondary,
-                              letterSpacing: 0.5,
+                          child: Center(
+                            child: Text(
+                              'Actions',
+                              style: AppText.formDescription.copyWith(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textSecondary,
+                                letterSpacing: 0.5,
+                              ),
                             ),
                           ),
                         ),
@@ -664,7 +699,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                     final victim = entry.value;
                     final name = victim['name'] ?? 'N/A';
                     final email = victim['email'] ?? 'N/A';
-                    final location = victim['Location'] ?? 'N/A';
+                    final String location = victim['location'] ?? 'N/A';
                     final isBlocked = victim['blocked'] ?? false;
 
                     return TableRow(
@@ -682,6 +717,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                           child: Padding(
                             padding: const EdgeInsets.symmetric(
                               horizontal: AppSpacing.xl,
+                              vertical: AppSpacing.lg,
                             ),
                             child: Text(
                               name,
@@ -702,6 +738,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                           child: Padding(
                             padding: const EdgeInsets.symmetric(
                               horizontal: AppSpacing.xl,
+                              vertical: AppSpacing.lg,
                             ),
                             child: Text(
                               email,
@@ -721,10 +758,12 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                           verticalAlignment: TableCellVerticalAlignment.middle,
                           child: Padding(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: AppSpacing.xxxl,
+                              horizontal: AppSpacing.xl,
+                              vertical: AppSpacing.lg,
                             ),
                             child: Text(
-                              location,
+                              location.isEmpty ? 'N/A' : location,
+                              maxLines: 4,
                               style: AppText.fieldLabel.copyWith(
                                 fontSize: 12,
                                 color: AppColors.textSecondary,
@@ -744,16 +783,20 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                               horizontal: AppSpacing.md,
                               vertical: AppSpacing.lg,
                             ),
-                            child: IconButton(
-                              padding: EdgeInsets.zero,
-                              onPressed: () {
-                                if (email != 'N/A') {
-                                  _removeUser(email);
-                                }
-                              },
-                              icon: const Icon(
-                                Icons.delete,
-                                color: AppColors.accentRose,
+                            child: Center(
+                              child: IconButton(
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                                onPressed: () {
+                                  if (email != 'N/A') {
+                                    _removeUser(email);
+                                  }
+                                },
+                                icon: const Icon(
+                                  Icons.delete,
+                                  color: AppColors.accentRose,
+                                  size: 20,
+                                ),
                               ),
                             ),
                           ),
@@ -766,24 +809,29 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                               horizontal: AppSpacing.md,
                               vertical: AppSpacing.lg,
                             ),
-                            child: IconButton(
-                              padding: EdgeInsets.zero,
-                              onPressed: () {
-                                if (email != 'N/A') {
-                                  isBlocked
-                                      ? _unblockUser(email)
-                                      : _blockUser(email);
-                                }
-                              },
-                              icon: isBlocked
-                                  ? const Icon(
-                                      Icons.block,
-                                      color: AppColors.accentRose,
-                                    )
-                                  : const Icon(
-                                      Icons.lock_open,
-                                      color: AppColors.accentRose,
-                                    ),
+                            child: Center(
+                              child: IconButton(
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                                onPressed: () {
+                                  if (email != 'N/A') {
+                                    isBlocked
+                                        ? _unblockUser(email)
+                                        : _blockUser(email);
+                                  }
+                                },
+                                icon: isBlocked
+                                    ? const Icon(
+                                        Icons.block,
+                                        color: AppColors.accentRose,
+                                        size: 20,
+                                      )
+                                    : const Icon(
+                                        Icons.lock_open,
+                                        color: AppColors.accentRose,
+                                        size: 20,
+                                      ),
+                              ),
                             ),
                           ),
                         ),
@@ -810,7 +858,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
   Widget _buildMobileCard(Map<String, dynamic> victim) {
     final name = victim['name'] ?? 'N/A';
     final email = victim['email'] ?? 'N/A';
-    final location = victim['location'] ?? 'N/A';
+    final String location = victim['location'] ?? 'N/A';
     final isBlocked = victim['blocked'] ?? false;
 
     return Container(
@@ -859,7 +907,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                 const SizedBox(height: AppSpacing.md),
                 _MobileInfoRow(
                   label: 'Location',
-                  value: location,
+                  value: location.isEmpty ? 'N/A' : location,
                   isBlocked: isBlocked,
                 ),
                 const SizedBox(height: AppSpacing.lg),
@@ -931,6 +979,7 @@ class _MobileInfoRow extends StatelessWidget {
         Expanded(
           child: Text(
             value,
+            maxLines: 4,
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w500,

@@ -8,7 +8,10 @@ void pageMessage(String message, BuildContext context, Color color) {
         content: Text(
           message,
           textAlign: TextAlign.center,
-          style: AppText.small.copyWith(fontWeight: FontWeight.w500),
+          style: AppText.small.copyWith(
+            fontWeight: FontWeight.w500,
+            color: AppColors.white,
+          ),
         ),
         backgroundColor: color,
         behavior: SnackBarBehavior.floating,

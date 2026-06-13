@@ -2,31 +2,31 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:life_line_admin/providers/ngo_info_provider.dart';
+import 'package:life_line_admin/providers/rescuer_info_provider.dart';
 import 'package:life_line_admin/styles/styles.dart';
 import 'package:life_line_admin/widgets/global/page_message.dart';
 import 'package:life_line_admin/widgets/global/page_navigation.dart';
 import 'package:life_line_admin/widgets/nav_bar.dart';
 import 'package:life_line_admin/pages/admin_dasboard.dart';
 
-class ShowNgoInfo extends ConsumerStatefulWidget {
-  const ShowNgoInfo({super.key});
+class ShowRescuerInfo extends ConsumerStatefulWidget {
+  const ShowRescuerInfo({super.key});
 
   @override
-  ConsumerState<ShowNgoInfo> createState() => _ShowNgoInfoState();
+  ConsumerState<ShowRescuerInfo> createState() => _ShowRescuerInfoState();
 }
 
-class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
+class _ShowRescuerInfoState extends ConsumerState<ShowRescuerInfo> {
   final TextEditingController _searchController = TextEditingController();
-  FirebaseFirestore? _ngoFirestore;
+  FirebaseFirestore? _rescuerFirestore;
 
-  static const FirebaseOptions _ngoFirebaseOptions = FirebaseOptions(
-    apiKey: 'AIzaSyBeieryGaw4bh4dtbrI54qsIc51XkP6SoM',
-    appId: '1:169949190544:web:2640453ce5dd2aa55d3b15',
-    messagingSenderId: '169949190544',
-    projectId: 'life-line-ngo',
-    authDomain: 'life-line-ngo.firebaseapp.com',
-    storageBucket: 'life-line-ngo.firebasestorage.app',
+  // life-line-rescuer database credentials
+  static const FirebaseOptions _rescuerFirebaseOptions = FirebaseOptions(
+    apiKey: 'AIzaSyDs-CoAc_fqrB-3BMl4N7pYSavyNV72zUQ',
+    appId: '1:494066243537:android:ffdb36137d6d3cb1a4b2f0',
+    messagingSenderId: '494066243537',
+    projectId: 'life-line-rescuer-b1f1c',
+    storageBucket: 'life-line-rescuer-b1f1c.firebasestorage.app',
   );
 
   @override
@@ -39,30 +39,35 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _initSecondaryFirebase();
+      _initRescuerFirebase();
     });
   }
 
-  Future<void> _initSecondaryFirebase() async {
+  Future<void> _initRescuerFirebase() async {
     if (mounted) {
-      ref.read(ngoPageProvider.notifier).setLoading(true);
+      ref.read(rescuerPageProvider.notifier).setLoading(true);
     }
 
     try {
-      final secondaryApp = await Firebase.initializeApp(
-        name: 'life-line-ngo',
-        options: _ngoFirebaseOptions,
-      );
-      _ngoFirestore = FirebaseFirestore.instanceFor(app: secondaryApp);
-      await _fetchNgos();
+      FirebaseApp rescuerApp;
+      try {
+        rescuerApp = Firebase.app('life-line-rescuer');
+      } catch (_) {
+        rescuerApp = await Firebase.initializeApp(
+          name: 'life-line-rescuer',
+          options: _rescuerFirebaseOptions,
+        );
+      }
+      _rescuerFirestore = FirebaseFirestore.instanceFor(app: rescuerApp);
+      await _fetchRescuers();
       if (mounted) {
-        ref.read(ngoPageProvider.notifier).setLoading(false);
+        ref.read(rescuerPageProvider.notifier).setLoading(false);
       }
     } catch (e) {
       if (mounted) {
-        ref.read(ngoPageProvider.notifier).setLoading(false);
+        ref.read(rescuerPageProvider.notifier).setLoading(false);
         pageMessage(
-          'An unexpected error occurred, please re-login',
+          'Error fetching rescuers, please try again',
           context,
           AppColors.error,
         );
@@ -71,68 +76,68 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
     }
   }
 
-  Future<void> _fetchNgos() async {
-    if (_ngoFirestore == null) return;
+  Future<void> _fetchRescuers() async {
+    if (_rescuerFirestore == null) return;
 
     try {
-      final snapshot = await _ngoFirestore!
-          .collection('ngo-info-database')
-          .get();
+      final snapshot = await _rescuerFirestore!.collection('users').get();
 
       if (!mounted) return;
 
-      final allNgos = snapshot.docs.map((doc) => doc.data()).toList();
+      final allRescuers = snapshot.docs.map((doc) => doc.data()).toList();
 
       final searchTerm = _searchController.text;
 
       List<Map<String, dynamic>> finalList;
 
       if (searchTerm.isEmpty) {
-        finalList = allNgos;
+        finalList = allRescuers;
       } else {
-        finalList = allNgos.where((ngo) {
-          final name = (ngo['ngoName'] ?? '').toString();
-          return name.toLowerCase().contains(searchTerm.toLowerCase());
+        finalList = allRescuers.where((rescuer) {
+          final firstName = (rescuer['firstName'] ?? '').toString();
+          final lastName = (rescuer['lastName'] ?? '').toString();
+          final fullName = '$firstName $lastName';
+          return fullName.toLowerCase().contains(searchTerm.toLowerCase());
         }).toList();
       }
 
       if (mounted) {
-        ref.read(ngoPageProvider.notifier).setNgos(finalList);
+        ref.read(rescuerPageProvider.notifier).setRescuers(finalList);
       }
     } catch (e) {
       rethrow;
     }
   }
 
-  Future<void> refreshNgos() async {
+  Future<void> refreshRescuers() async {
     if (mounted) {
-      ref.read(ngoPageProvider.notifier).setLoading(true);
+      ref.read(rescuerPageProvider.notifier).setLoading(true);
     }
 
     try {
-      await _fetchNgos();
+      await _fetchRescuers();
     } catch (e) {
       if (mounted) {
-        pageMessage('Error refreshing NGO data', context, AppColors.error);
+        pageMessage('Error refreshing rescuer data', context, AppColors.error);
       }
     } finally {
       if (mounted) {
-        ref.read(ngoPageProvider.notifier).setLoading(false);
+        ref.read(rescuerPageProvider.notifier).setLoading(false);
       }
     }
   }
 
-  Future<void> _removeNgo(String regNumber) async {
-    if (_ngoFirestore == null) return;
+  Future<void> _removeUser(String id) async {
+    if (_rescuerFirestore == null) return;
 
     if (mounted) {
-      ref.read(ngoPageProvider.notifier).setLoading(true);
+      ref.read(rescuerPageProvider.notifier).setLoading(true);
     }
 
     try {
-      final querySnapshot = await _ngoFirestore!
-          .collection('ngo-info-database')
-          .where('registrationNumber', isEqualTo: regNumber)
+      final querySnapshot = await _rescuerFirestore!
+          .collection('users')
+          .where('id', isEqualTo: id)
           .get();
 
       for (var doc in querySnapshot.docs) {
@@ -140,15 +145,15 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
       }
 
       if (mounted) {
-        ref.read(ngoPageProvider.notifier).setLoading(false);
-        pageMessage('NGO removed successfully', context, AppColors.success);
-        await _fetchNgos(); // Refresh data after removal
+        ref.read(rescuerPageProvider.notifier).setLoading(false);
+        pageMessage('Rescuer removed successfully', context, AppColors.success);
+        await _fetchRescuers();
       }
     } catch (e) {
       if (mounted) {
-        ref.read(ngoPageProvider.notifier).setLoading(false);
+        ref.read(rescuerPageProvider.notifier).setLoading(false);
         pageMessage(
-          'Error removing user, please try again',
+          'Error removing rescuer, please try again',
           context,
           AppColors.error,
         );
@@ -156,17 +161,17 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
     }
   }
 
-  Future<void> _blockNgo(String regNumber) async {
-    if (_ngoFirestore == null) return;
+  Future<void> _blockUser(String id) async {
+    if (_rescuerFirestore == null) return;
 
     if (mounted) {
-      ref.read(ngoPageProvider.notifier).setLoading(true);
+      ref.read(rescuerPageProvider.notifier).setLoading(true);
     }
 
     try {
-      final querySnapshot = await _ngoFirestore!
-          .collection('ngo-info-database')
-          .where('registrationNumber', isEqualTo: regNumber)
+      final querySnapshot = await _rescuerFirestore!
+          .collection('users')
+          .where('id', isEqualTo: id)
           .get();
 
       for (var doc in querySnapshot.docs) {
@@ -174,15 +179,15 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
       }
 
       if (mounted) {
-        ref.read(ngoPageProvider.notifier).setLoading(false);
-        pageMessage('NGO blocked successfully', context, AppColors.success);
-        await _fetchNgos(); // Refresh data after blocking
+        ref.read(rescuerPageProvider.notifier).setLoading(false);
+        pageMessage('Rescuer blocked successfully', context, AppColors.success);
+        await _fetchRescuers();
       }
     } catch (e) {
       if (mounted) {
-        ref.read(ngoPageProvider.notifier).setLoading(false);
+        ref.read(rescuerPageProvider.notifier).setLoading(false);
         pageMessage(
-          'Error blocking NGO, please retry',
+          'Error blocking rescuer, please retry',
           context,
           AppColors.error,
         );
@@ -190,17 +195,17 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
     }
   }
 
-  Future<void> _unblockNgo(String regNumber) async {
-    if (_ngoFirestore == null) return;
+  Future<void> _unblockUser(String id) async {
+    if (_rescuerFirestore == null) return;
 
     if (mounted) {
-      ref.read(ngoPageProvider.notifier).setLoading(true);
+      ref.read(rescuerPageProvider.notifier).setLoading(true);
     }
 
     try {
-      final querySnapshot = await _ngoFirestore!
-          .collection('ngo-info-database')
-          .where('registrationNumber', isEqualTo: regNumber)
+      final querySnapshot = await _rescuerFirestore!
+          .collection('users')
+          .where('id', isEqualTo: id)
           .get();
 
       for (var doc in querySnapshot.docs) {
@@ -208,15 +213,19 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
       }
 
       if (mounted) {
-        ref.read(ngoPageProvider.notifier).setLoading(false);
-        pageMessage('NGO unblocked successfully', context, AppColors.success);
-        await _fetchNgos(); // Refresh data after unblocking
+        ref.read(rescuerPageProvider.notifier).setLoading(false);
+        pageMessage(
+          'Rescuer unblocked successfully',
+          context,
+          AppColors.success,
+        );
+        await _fetchRescuers();
       }
     } catch (e) {
       if (mounted) {
-        ref.read(ngoPageProvider.notifier).setLoading(false);
+        ref.read(rescuerPageProvider.notifier).setLoading(false);
         pageMessage(
-          'Error blocking NGO, please retry',
+          'Error unblocking rescuer, please retry',
           context,
           AppColors.error,
         );
@@ -264,11 +273,13 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
                           children: [
                             _buildHeader(isMobile),
                             SizedBox(
-                              height: isMobile ? AppSpacing.lg : AppSpacing.xxl,
+                              height:
+                                  isMobile ? AppSpacing.lg : AppSpacing.xxl,
                             ),
                             _buildSearchBar(isMobile),
                             SizedBox(
-                              height: isMobile ? AppSpacing.lg : AppSpacing.xxl,
+                              height:
+                                  isMobile ? AppSpacing.lg : AppSpacing.xxl,
                             ),
                             Consumer(
                               builder: (context, ref, child) {
@@ -287,7 +298,7 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
               builder: (context, ref, child) {
                 if (!mounted) return const SizedBox.shrink();
                 final isLoading = ref.watch(
-                  ngoPageProvider.select((v) => v.isLoading),
+                  rescuerPageProvider.select((v) => v.isLoading),
                 );
                 if (!isLoading) return const SizedBox.shrink();
                 return IgnorePointer(
@@ -361,7 +372,7 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'NGO Management',
+                  'Rescuer Management',
                   style: TextStyle(
                     fontSize: isMobile ? 24 : 28,
                     fontWeight: FontWeight.w700,
@@ -370,7 +381,7 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Manage and monitor registered Ngos',
+                  'Manage and monitor registered Rescuers',
                   style: TextStyle(
                     fontSize: isMobile ? 14 : 16,
                     color: AppColors.textSecondary,
@@ -417,7 +428,7 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
                       child: TextField(
                         controller: _searchController,
                         decoration: const InputDecoration(
-                          hintText: 'Enter Ngo name to search...',
+                          hintText: 'Enter rescuer name to search...',
                           hintStyle: TextStyle(
                             color: AppColors.textSecondary,
                             fontSize: 14,
@@ -440,7 +451,7 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
                       width: double.infinity,
                       height: 48,
                       child: ElevatedButton(
-                        onPressed: refreshNgos,
+                        onPressed: refreshRescuers,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primaryMaroon,
                           foregroundColor: Colors.white,
@@ -450,7 +461,7 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
                           ),
                         ),
                         child: const Text(
-                          'Search Ngos',
+                          'Search Rescuers',
                           style: TextStyle(fontWeight: FontWeight.w600),
                         ),
                       ),
@@ -472,7 +483,7 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
                         child: TextField(
                           controller: _searchController,
                           decoration: const InputDecoration(
-                            hintText: 'Enter Ngo name to search...',
+                            hintText: 'Enter rescuer name to search...',
                             hintStyle: TextStyle(
                               color: AppColors.textSecondary,
                               fontSize: 14,
@@ -495,7 +506,7 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
                     SizedBox(
                       height: 48,
                       child: ElevatedButton(
-                        onPressed: refreshNgos,
+                        onPressed: refreshRescuers,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primaryMaroon,
                           foregroundColor: Colors.white,
@@ -508,7 +519,7 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
                           ),
                         ),
                         child: const Text(
-                          'Search Ngos',
+                          'Search Rescuers',
                           style: TextStyle(fontWeight: FontWeight.w600),
                         ),
                       ),
@@ -522,9 +533,10 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
 
   Widget _buildContent(bool isMobile, bool isTablet, WidgetRef ref) {
     if (!mounted) return const SizedBox.shrink();
-    final ngos = ref.watch(ngoPageProvider.select((v) => v.ngos));
+    final rescuers =
+        ref.watch(rescuerPageProvider.select((v) => v.rescuers));
 
-    if (ngos.isEmpty) {
+    if (rescuers.isEmpty) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(AppSpacing.xxxxl),
@@ -538,7 +550,7 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
               ),
               const SizedBox(height: AppSpacing.lg),
               Text(
-                'No NGOs data found',
+                'No Rescuers data found',
                 style: AppText.subtitle.copyWith(
                   color: AppColors.textSecondary,
                   fontWeight: FontWeight.w600,
@@ -551,11 +563,11 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
     }
 
     return isMobile || isTablet
-        ? _buildMobileNgoList(ref)
-        : _buildWebNgoTable();
+        ? _buildMobileRescuerList(ref)
+        : _buildWebRescuerTable();
   }
 
-  Widget _buildWebNgoTable() {
+  Widget _buildWebRescuerTable() {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -575,16 +587,16 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
           Consumer(
             builder: (context, ref, child) {
               if (!mounted) return const SizedBox.shrink();
-              final ngos = ref.watch(ngoPageProvider.select((v) => v.ngos));
+              final rescuers = ref.watch(
+                rescuerPageProvider.select((v) => v.rescuers),
+              );
               return Table(
                 columnWidths: const {
                   0: FlexColumnWidth(3),
-                  1: FlexColumnWidth(1.5),
-                  2: FlexColumnWidth(2),
-                  3: FlexColumnWidth(2),
-                  4: FlexColumnWidth(1),
-                  5: FlexColumnWidth(1.2),
-                  6: FlexColumnWidth(1.3),
+                  1: FlexColumnWidth(3),
+                  2: FlexColumnWidth(3),
+                  3: FlexColumnWidth(1.2),
+                  4: FlexColumnWidth(1.5),
                 },
                 children: [
                   // Header Row
@@ -607,9 +619,25 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
                             vertical: AppSpacing.lg,
                           ),
                           child: Text(
-                            'Name',
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
+                            'Full Name',
+                            style: AppText.formDescription.copyWith(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textSecondary,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ),
+                      ),
+                      TableCell(
+                        verticalAlignment: TableCellVerticalAlignment.middle,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.xl,
+                            vertical: AppSpacing.lg,
+                          ),
+                          child: Text(
+                            'Registered With',
                             style: AppText.formDescription.copyWith(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
@@ -628,68 +656,6 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
                           ),
                           child: Text(
                             'Branch Name',
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppText.formDescription.copyWith(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.textSecondary,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                        ),
-                      ),
-                      TableCell(
-                        verticalAlignment: TableCellVerticalAlignment.middle,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: AppSpacing.xl,
-                            vertical: AppSpacing.lg,
-                          ),
-                          child: Text(
-                            'Geographical Coverage',
-                            maxLines: 4,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppText.formDescription.copyWith(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.textSecondary,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                        ),
-                      ),
-                      TableCell(
-                        verticalAlignment: TableCellVerticalAlignment.middle,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: AppSpacing.xl,
-                            vertical: AppSpacing.lg,
-                          ),
-                          child: Text(
-                            'Reg Number',
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppText.formDescription.copyWith(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.textSecondary,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                        ),
-                      ),
-                      TableCell(
-                        verticalAlignment: TableCellVerticalAlignment.middle,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: AppSpacing.xl,
-                            vertical: AppSpacing.lg,
-                          ),
-                          child: Text(
-                            'Status',
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
                             style: AppText.formDescription.copyWith(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
@@ -708,9 +674,7 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
                           ),
                           child: Center(
                             child: Text(
-                              'Actions',
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
+                              'Remove',
                               style: AppText.formDescription.copyWith(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
@@ -730,9 +694,7 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
                           ),
                           child: Center(
                             child: Text(
-                              'Remove NGO',
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
+                              'Block',
                               style: AppText.formDescription.copyWith(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
@@ -746,14 +708,18 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
                     ],
                   ),
                   // Data Rows
-                  ...ngos.asMap().entries.map((entry) {
-                    final ngo = entry.value;
-                    final name = ngo['ngoName'] ?? 'N/A';
-                    final branchName = ngo['branchName'] ?? 'N/A';
-                    final coverage = ngo['geographicalCoverage'] ?? 'N/A';
-                    final regNumber = ngo['registrationNumber'] ?? false;
-                    final isBlocked = ngo['blocked'] ?? false;
-                    final isApproved = ngo['approved'] ?? false;
+                  ...rescuers.asMap().entries.map((entry) {
+                    final rescuer = entry.value;
+                    final firstName = rescuer['firstName'] ?? '';
+                    final lastName = rescuer['lastName'] ?? '';
+                    final fullName =
+                        '$firstName $lastName'.trim().isEmpty
+                            ? 'N/A'
+                            : '$firstName $lastName'.trim();
+                    final ngoName = rescuer['ngoName'] ?? 'N/A';
+                    final branchName = rescuer['branchName'] ?? 'N/A';
+                    final id = rescuer['id'] ?? '';
+                    final isBlocked = rescuer['blocked'] ?? false;
 
                     return TableRow(
                       decoration: BoxDecoration(
@@ -764,7 +730,7 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
                         ),
                       ),
                       children: [
-                        // Name Cell
+                        // Full Name Cell
                         TableCell(
                           verticalAlignment: TableCellVerticalAlignment.middle,
                           child: Padding(
@@ -773,9 +739,7 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
                               vertical: AppSpacing.lg,
                             ),
                             child: Text(
-                              name,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
+                              fullName,
                               style: AppText.fieldLabel.copyWith(
                                 fontSize: 12,
                                 color: AppColors.textSecondary,
@@ -783,6 +747,28 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
                                     ? TextDecoration.lineThrough
                                     : TextDecoration.none,
                               ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                        // Registered With (NGO) Cell
+                        TableCell(
+                          verticalAlignment: TableCellVerticalAlignment.middle,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.xl,
+                              vertical: AppSpacing.lg,
+                            ),
+                            child: Text(
+                              ngoName,
+                              style: AppText.fieldLabel.copyWith(
+                                fontSize: 12,
+                                color: AppColors.textSecondary,
+                                decoration: isBlocked
+                                    ? TextDecoration.lineThrough
+                                    : TextDecoration.none,
+                              ),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ),
@@ -796,8 +782,7 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
                             ),
                             child: Text(
                               branchName,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
+                              maxLines: 4,
                               style: AppText.fieldLabel.copyWith(
                                 fontSize: 12,
                                 color: AppColors.textSecondary,
@@ -805,76 +790,11 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
                                     ? TextDecoration.lineThrough
                                     : TextDecoration.none,
                               ),
-                            ),
-                          ),
-                        ),
-                        // Coverage Cell
-                        TableCell(
-                          verticalAlignment: TableCellVerticalAlignment.middle,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: AppSpacing.xl,
-                              vertical: AppSpacing.lg,
-                            ),
-                            child: Text(
-                              coverage,
-                              maxLines: 2,
                               overflow: TextOverflow.ellipsis,
-                              style: AppText.fieldLabel.copyWith(
-                                fontSize: 12,
-                                color: AppColors.textSecondary,
-                                decoration: isBlocked
-                                    ? TextDecoration.lineThrough
-                                    : TextDecoration.none,
-                              ),
                             ),
                           ),
                         ),
-                        // Reg Number Cell
-                        TableCell(
-                          verticalAlignment: TableCellVerticalAlignment.middle,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: AppSpacing.xl,
-                              vertical: AppSpacing.lg,
-                            ),
-                            child: Text(
-                              regNumber,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: AppText.fieldLabel.copyWith(
-                                fontSize: 12,
-                                color: AppColors.textSecondary,
-                                decoration: isBlocked
-                                    ? TextDecoration.lineThrough
-                                    : TextDecoration.none,
-                              ),
-                            ),
-                          ),
-                        ),
-                        // Status Cell
-                        TableCell(
-                          verticalAlignment: TableCellVerticalAlignment.middle,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: AppSpacing.xl,
-                              vertical: AppSpacing.lg,
-                            ),
-                            child: Text(
-                              isApproved ? 'Approved' : 'Not Approved',
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: AppText.fieldLabel.copyWith(
-                                fontSize: 12,
-                                color: AppColors.textSecondary,
-                                decoration: isBlocked
-                                    ? TextDecoration.lineThrough
-                                    : TextDecoration.none,
-                              ),
-                            ),
-                          ),
-                        ),
-                        // Actions Cell (Block/Unblock)
+                        // Remove Cell
                         TableCell(
                           verticalAlignment: TableCellVerticalAlignment.middle,
                           child: Padding(
@@ -887,10 +807,36 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
                                 padding: EdgeInsets.zero,
                                 constraints: const BoxConstraints(),
                                 onPressed: () {
-                                  if (regNumber != 'N/A') {
+                                  if (id.isNotEmpty) {
+                                    _removeUser(id);
+                                  }
+                                },
+                                icon: const Icon(
+                                  Icons.delete,
+                                  color: AppColors.accentRose,
+                                  size: 20,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        // Block / Unblock Cell
+                        TableCell(
+                          verticalAlignment: TableCellVerticalAlignment.middle,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.md,
+                              vertical: AppSpacing.lg,
+                            ),
+                            child: Center(
+                              child: IconButton(
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                                onPressed: () {
+                                  if (id.isNotEmpty) {
                                     isBlocked
-                                        ? _unblockNgo(regNumber)
-                                        : _blockNgo(regNumber);
+                                        ? _unblockUser(id)
+                                        : _blockUser(id);
                                   }
                                 },
                                 icon: isBlocked
@@ -908,30 +854,6 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
                             ),
                           ),
                         ),
-                        // Remove NGO Cell
-                        TableCell(
-                          verticalAlignment: TableCellVerticalAlignment.middle,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: AppSpacing.md,
-                              vertical: AppSpacing.lg,
-                            ),
-                            child: Center(
-                              child: IconButton(
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(),
-                                onPressed: () {
-                                  if (regNumber != 'N/A') _removeNgo(regNumber);
-                                },
-                                icon: const Icon(
-                                  Icons.delete,
-                                  color: AppColors.accentRose,
-                                  size: 20,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
                       ],
                     );
                   }),
@@ -944,18 +866,25 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
     );
   }
 
-  Widget _buildMobileNgoList(WidgetRef ref) {
+  Widget _buildMobileRescuerList(WidgetRef ref) {
     if (!mounted) return const SizedBox.shrink();
-    final ngos = ref.watch(ngoPageProvider.select((v) => v.ngos));
-    return Column(children: ngos.map((ngo) => _buildMobileCard(ngo)).toList());
+    final rescuers =
+        ref.watch(rescuerPageProvider.select((v) => v.rescuers));
+    return Column(
+      children: rescuers.map((rescuer) => _buildMobileCard(rescuer)).toList(),
+    );
   }
 
-  Widget _buildMobileCard(Map<String, dynamic> ngo) {
-    final name = ngo['ngoName'] ?? 'N/A';
-    final branchName = ngo['branchName'] ?? 'N/A';
-    final coverage = ngo['geographicalCoverage'] ?? 'N/A';
-    final regNumber = ngo['registrationNumber'] ?? false;
-    final isBlocked = ngo['blocked'] ?? false;
+  Widget _buildMobileCard(Map<String, dynamic> rescuer) {
+    final firstName = rescuer['firstName'] ?? '';
+    final lastName = rescuer['lastName'] ?? '';
+    final fullName = '$firstName $lastName'.trim().isEmpty
+        ? 'N/A'
+        : '$firstName $lastName'.trim();
+    final ngoName = rescuer['ngoName'] ?? 'N/A';
+    final branchName = rescuer['branchName'] ?? 'N/A';
+    final id = rescuer['id'] ?? '';
+    final isBlocked = rescuer['blocked'] ?? false;
 
     return Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.lg),
@@ -977,7 +906,7 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
           Padding(
             padding: const EdgeInsets.all(AppSpacing.md),
             child: Text(
-              name,
+              fullName,
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
@@ -995,48 +924,41 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
             padding: const EdgeInsets.all(AppSpacing.md),
             child: Column(
               children: [
-                _MobileInfoRow(
-                  label: 'Branch Name',
-                  value: branchName,
+                _RescuerMobileInfoRow(
+                  label: 'NGO',
+                  value: ngoName,
                   isBlocked: isBlocked,
                 ),
                 const SizedBox(height: AppSpacing.md),
-                _MobileInfoRow(
-                  label: 'Coverage',
-                  value: coverage,
+                _RescuerMobileInfoRow(
+                  label: 'Branch',
+                  value: branchName,
                   isBlocked: isBlocked,
                 ),
                 const SizedBox(height: AppSpacing.lg),
-                _MobileInfoRow(
-                  label: 'Reg No.',
-                  value: regNumber,
-                  isBlocked: isBlocked,
-                ),
-                const SizedBox(height: AppSpacing.lg),
+
                 // Actions
                 Row(
                   children: [
                     Expanded(
-                      child: _MobileActionButton(
+                      child: _RescuerMobileActionButton(
                         label: 'Remove',
                         color: AppColors.error,
                         onPressed: () {
-                          if (regNumber != 'N/A') _removeNgo(regNumber);
+                          if (id.isNotEmpty) _removeUser(id);
                         },
                       ),
                     ),
                     const SizedBox(width: AppSpacing.xl),
                     Expanded(
-                      child: _MobileActionButton(
+                      child: _RescuerMobileActionButton(
                         label: isBlocked ? 'Unblock' : 'Block',
                         color: isBlocked
                             ? AppColors.success
                             : AppColors.warning,
                         onPressed: () {
-                          if (regNumber != 'N/A') {
-                            isBlocked
-                                ? _unblockNgo(regNumber)
-                                : _blockNgo(regNumber);
+                          if (id.isNotEmpty) {
+                            isBlocked ? _unblockUser(id) : _blockUser(id);
                           }
                         },
                       ),
@@ -1052,12 +974,12 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
   }
 }
 
-class _MobileInfoRow extends StatelessWidget {
+class _RescuerMobileInfoRow extends StatelessWidget {
   final String label;
   final String value;
   final bool isBlocked;
 
-  const _MobileInfoRow({
+  const _RescuerMobileInfoRow({
     required this.label,
     required this.value,
     required this.isBlocked,
@@ -1099,12 +1021,12 @@ class _MobileInfoRow extends StatelessWidget {
   }
 }
 
-class _MobileActionButton extends StatelessWidget {
+class _RescuerMobileActionButton extends StatelessWidget {
   final String label;
   final Color color;
   final VoidCallback onPressed;
 
-  const _MobileActionButton({
+  const _RescuerMobileActionButton({
     required this.label,
     required this.color,
     required this.onPressed,
