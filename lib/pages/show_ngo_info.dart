@@ -49,11 +49,19 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
     }
 
     try {
-      final secondaryApp = await Firebase.initializeApp(
-        name: 'life-line-ngo',
-        options: _ngoFirebaseOptions,
-      );
-      _ngoFirestore = FirebaseFirestore.instanceFor(app: secondaryApp);
+      FirebaseApp ngoApp;
+
+      try {
+        ngoApp = Firebase.app('life-line-ngo');
+      } catch (_) {
+        ngoApp = await Firebase.initializeApp(
+          name: 'life-line-ngo',
+          options: _ngoFirebaseOptions,
+        );
+      }
+
+      _ngoFirestore = FirebaseFirestore.instanceFor(app: ngoApp);
+
       await _fetchNgos();
       if (mounted) {
         ref.read(ngoPageProvider.notifier).setLoading(false);

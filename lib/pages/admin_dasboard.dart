@@ -62,23 +62,38 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
     }
 
     try {
-      // Initialize NGO Firebase
-      final ngoApp = await Firebase.initializeApp(
-        name: 'life-line-ngo',
-        options: _ngoFirebaseOptions,
-      );
+      FirebaseApp ngoApp;
+      FirebaseApp victimApp;
+
+      // NGO Firebase
+      try {
+        ngoApp = Firebase.app('life-line-ngo');
+      } catch (_) {
+        ngoApp = await Firebase.initializeApp(
+          name: 'life-line-ngo',
+          options: _ngoFirebaseOptions,
+        );
+      }
+
       _ngoFirestore = FirebaseFirestore.instanceFor(app: ngoApp);
 
-      // Initialize Victim Firebase
-      final victimApp = await Firebase.initializeApp(
-        name: 'life-line-victim',
-        options: _victimFirebaseOptions,
-      );
+      // Victim Firebase
+      try {
+        victimApp = Firebase.app('life-line-victim');
+      } catch (_) {
+        victimApp = await Firebase.initializeApp(
+          name: 'life-line-victim',
+          options: _victimFirebaseOptions,
+        );
+      }
+
       _victimFirestore = FirebaseFirestore.instanceFor(app: victimApp);
 
-      await _fetchNgoRequests();
-      await _fetchVictimCount();
-      await _fetchNgoCount();
+      await Future.wait([
+        _fetchNgoRequests(),
+        _fetchVictimCount(),
+        _fetchNgoCount(),
+      ]);
 
       if (mounted) {
         ref.read(adminPageProvider.notifier).setLoading(false);
@@ -86,11 +101,13 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
     } catch (e) {
       if (mounted) {
         ref.read(adminPageProvider.notifier).setLoading(false);
+
         pageMessage(
           'An unexpected error occurred please try again.',
           context,
           AppColors.error,
         );
+
         pageNavigation(const AdminAuthentication(), context);
       }
     }
