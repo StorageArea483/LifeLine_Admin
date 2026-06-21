@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:life_line_admin/providers/settings_page_provider.dart';
 import 'package:life_line_admin/styles/styles.dart';
+import 'package:life_line_admin/widgets/global/page_loading.dart';
 import 'package:life_line_admin/widgets/global/page_message.dart';
 import 'package:life_line_admin/widgets/global/page_navigation.dart';
 import 'package:life_line_admin/widgets/nav_bar.dart';
@@ -137,21 +138,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   settingsPageProvider.select((v) => v.isLoading),
                 );
                 if (!isLoading) return const SizedBox.shrink();
-                return IgnorePointer(
-                  child: Container(
-                    color: Colors.black.withValues(alpha: 0.5),
-                    child: const Center(
-                      child: SizedBox(
-                        width: 60,
-                        height: 60,
-                        child: CircularProgressIndicator(
-                          color: AppColors.primaryMaroon,
-                          strokeWidth: 4,
-                        ),
-                      ),
-                    ),
-                  ),
-                );
+                return pageLoading(context);
               },
             ),
           ],

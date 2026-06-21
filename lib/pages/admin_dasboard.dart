@@ -6,6 +6,7 @@ import 'package:life_line_admin/pages/admin_authentication.dart';
 import 'package:life_line_admin/pages/show_rescuer_info.dart';
 import 'package:life_line_admin/providers/admin_page_provider.dart';
 import 'package:life_line_admin/styles/styles.dart';
+import 'package:life_line_admin/widgets/global/page_loading.dart';
 import 'package:life_line_admin/widgets/global/page_message.dart';
 import 'package:life_line_admin/widgets/global/page_navigation.dart';
 import 'package:life_line_admin/widgets/nav_bar.dart';
@@ -571,21 +572,7 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
                   adminPageProvider.select((v) => v.isLoading),
                 );
                 if (!isLoading) return const SizedBox.shrink();
-                return IgnorePointer(
-                  child: Container(
-                    color: Colors.black.withValues(alpha: 0.5),
-                    child: const Center(
-                      child: SizedBox(
-                        width: 60,
-                        height: 60,
-                        child: CircularProgressIndicator(
-                          color: AppColors.primaryMaroon,
-                          strokeWidth: 4,
-                        ),
-                      ),
-                    ),
-                  ),
-                );
+                return pageLoading(context);
               },
             ),
           ],
