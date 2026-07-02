@@ -81,7 +81,6 @@ class _SettingsCardState extends ConsumerState<SettingsCard> {
                     ),
                     Consumer(
                       builder: (context, ref, child) {
-                        if (!mounted) return const SizedBox.shrink();
                         final isExpanded = ref.watch(
                           settingsCardExpandedProvider(widget.title),
                         );
@@ -103,7 +102,6 @@ class _SettingsCardState extends ConsumerState<SettingsCard> {
           ),
           Consumer(
             builder: (context, ref, child) {
-              if (!mounted) return const SizedBox.shrink();
               final isExpanded = ref.watch(
                 settingsCardExpandedProvider(widget.title),
               );

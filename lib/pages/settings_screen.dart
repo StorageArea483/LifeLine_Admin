@@ -282,16 +282,28 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     });
                     if (mounted) {
                       // ignore: use_build_context_synchronously
-                      pageMessage('Password updated successfully', context, AppColors.success);
+                      pageMessage(
+                        'Password updated successfully',
+                        context,
+                        AppColors.success,
+                      );
                     }
                   } else {
                     if (mounted) {
-                      pageMessage('Failed to update password', context, AppColors.error);
+                      pageMessage(
+                        'Failed to update password',
+                        context,
+                        AppColors.error,
+                      );
                     }
                   }
                 } catch (e) {
                   if (mounted) {
-                    pageMessage('An unexpected error occurred', context, AppColors.error);
+                    pageMessage(
+                      'An unexpected error occurred',
+                      context,
+                      AppColors.error,
+                    );
                   }
                 } finally {
                   if (mounted) {
@@ -309,7 +321,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Widget _buildNgoManagementSection(bool isMobile, WidgetRef ref) {
-    if (!mounted) return const SizedBox.shrink();
     final autoApprovalMode = ref.watch(
       settingsPageProvider.select((v) => v.autoApprovalMode),
     );
@@ -357,7 +368,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         children: [
           Consumer(
             builder: (context, ref, child) {
-              if (!mounted) return const SizedBox.shrink();
               final sosSystemEnabled = ref.watch(
                 settingsPageProvider.select((v) => v.sosSystemEnabled),
               );
@@ -395,7 +405,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           const SizedBox(height: AppSpacing.xl),
           Consumer(
             builder: (context, ref, child) {
-              if (!mounted) return const SizedBox.shrink();
               final systemMaintenance = ref.watch(
                 settingsPageProvider.select((v) => v.systemMaintenance),
               );
@@ -469,10 +478,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                 'maintenance': !systemMaintenance,
                               });
                             } else {
-                              if (mounted) {
+                              pageMessage(
+                                'Failed to process your request',
                                 // ignore: use_build_context_synchronously
-                                pageMessage('Failed to process your request', context, AppColors.error);
-                              }
+                                context,
+                                AppColors.error,
+                              );
                             }
                             if (mounted) {
                               ref
@@ -482,7 +493,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           } catch (e) {
                             if (mounted) {
                               // ignore: use_build_context_synchronously
-                              pageMessage('An unexpected error occurred', context, AppColors.error);
+                              pageMessage(
+                                'An unexpected error occurred',
+                                // ignore: use_build_context_synchronously
+                                context,
+                                AppColors.error,
+                              );
                             }
                           } finally {
                             if (mounted) {
@@ -567,7 +583,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 });
               } else {
                 if (mounted) {
-                  pageMessage('Failed to process your request', context, AppColors.error);
+                  pageMessage(
+                    'Failed to process your request',
+                    context,
+                    AppColors.error,
+                  );
                 }
               }
 
@@ -578,7 +598,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               }
             } catch (e) {
               if (mounted) {
-                pageMessage('An unexpected error occurred', context, AppColors.error);
+                pageMessage(
+                  'An unexpected error occurred',
+                  context,
+                  AppColors.error,
+                );
               }
             } finally {
               if (mounted) {
@@ -599,7 +623,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 });
               } else {
                 if (mounted) {
-                  pageMessage('Failed to process your request', context, AppColors.error);
+                  pageMessage(
+                    'Failed to process your request',
+                    context,
+                    AppColors.error,
+                  );
                 }
               }
 
@@ -610,7 +638,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               }
             } catch (e) {
               if (mounted) {
-                pageMessage('An unexpected error occurred', context, AppColors.error);
+                pageMessage(
+                  'An unexpected error occurred',
+                  context,
+                  AppColors.error,
+                );
               }
             } finally {
               if (mounted) {

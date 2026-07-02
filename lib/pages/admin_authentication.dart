@@ -51,14 +51,22 @@ class _AdminAuthenticationState extends ConsumerState<AdminAuthentication> {
             }
           } else {
             if (mounted) {
-              pageMessage("Invalid ID or password. Please try again.", context, AppColors.error);
+              pageMessage(
+                "Invalid ID or password. Please try again.",
+                context,
+                AppColors.error,
+              );
             }
           }
         }
       } catch (e) {
         if (mounted) {
           ref.read(adminAuthPageProvider.notifier).setLoading(false);
-          pageMessage("An unexpected error occurred, please try again.", context, AppColors.error);
+          pageMessage(
+            "An unexpected error occurred, please try again.",
+            context,
+            AppColors.error,
+          );
         }
       }
     }
@@ -156,7 +164,6 @@ class _AdminAuthenticationState extends ConsumerState<AdminAuthentication> {
             const SizedBox(height: AppSpacing.sm),
             Consumer(
               builder: (context, ref, child) {
-                if (!mounted) return const SizedBox.shrink();
                 final obscureTextField = ref.watch(
                   adminAuthPageProvider.select((v) => v.obscureTextField),
                 );
@@ -195,7 +202,6 @@ class _AdminAuthenticationState extends ConsumerState<AdminAuthentication> {
             const SizedBox(height: AppSpacing.sm),
             Consumer(
               builder: (context, ref, child) {
-                if (!mounted) return const SizedBox.shrink();
                 final obscurePassword = ref.watch(
                   adminAuthPageProvider.select((v) => v.obscurePassword),
                 );
@@ -240,7 +246,6 @@ class _AdminAuthenticationState extends ConsumerState<AdminAuthentication> {
               height: isMobile ? 48 : AppSizes.submitButtonHeight,
               child: Consumer(
                 builder: (context, ref, child) {
-                  if (!mounted) return const SizedBox.shrink();
                   final isLoading = ref.watch(
                     adminAuthPageProvider.select((v) => v.isLoading),
                   );

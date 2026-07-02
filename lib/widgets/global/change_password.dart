@@ -75,7 +75,11 @@ class _ChangePasswordState extends ConsumerState<ChangePassword> {
 
       if (mounted) {
         ref.read(changePassProvider.notifier).setIsLoading(false);
-        pageMessage('Password updated successfully', context, AppColors.success);
+        pageMessage(
+          'Password updated successfully',
+          context,
+          AppColors.success,
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -171,7 +175,6 @@ class _ChangePasswordState extends ConsumerState<ChangePassword> {
             const SizedBox(height: AppSpacing.sm),
             Consumer(
               builder: (context, ref, child) {
-                if (!mounted) return const SizedBox.shrink();
                 final obscureNewPassword = ref.watch(
                   changePassProvider.select((v) => v.obscureNewPassword),
                 );
@@ -207,7 +210,6 @@ class _ChangePasswordState extends ConsumerState<ChangePassword> {
             const SizedBox(height: AppSpacing.sm),
             Consumer(
               builder: (context, ref, child) {
-                if (!mounted) return const SizedBox.shrink();
                 final obscureConfirmPassword = ref.watch(
                   changePassProvider.select((v) => v.obscureConfirmPassword),
                 );
@@ -244,7 +246,6 @@ class _ChangePasswordState extends ConsumerState<ChangePassword> {
               height: isMobile ? 48 : AppSizes.submitButtonHeight,
               child: Consumer(
                 builder: (context, ref, child) {
-                  if (!mounted) return const SizedBox.shrink();
                   final isLoading = ref.watch(
                     changePassProvider.select((v) => v.isLoading),
                   );

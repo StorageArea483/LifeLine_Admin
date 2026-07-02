@@ -13,6 +13,7 @@ import 'package:life_line_admin/widgets/nav_bar.dart';
 import 'package:life_line_admin/pages/show_ngo_info.dart';
 import 'package:life_line_admin/pages/show_victim_info.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'dart:io' show Platform;
 
 class AdminDashboard extends ConsumerStatefulWidget {
   const AdminDashboard({super.key});
@@ -24,6 +25,7 @@ class AdminDashboard extends ConsumerStatefulWidget {
 class _AdminDashboardState extends ConsumerState<AdminDashboard> {
   FirebaseFirestore? _ngoFirestore;
   FirebaseFirestore? _victimFirestore;
+  FirebaseFirestore? _rescuerFirestore;
 
   static const FirebaseOptions _ngoFirebaseOptions = FirebaseOptions(
     apiKey: 'AIzaSyBeieryGaw4bh4dtbrI54qsIc51XkP6SoM',
@@ -35,13 +37,39 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
   );
 
   // life-line-victim database credentials
-  static const FirebaseOptions _victimFirebaseOptions = FirebaseOptions(
-    apiKey: 'AIzaSyCgdeU_737w9twNR2zt5dzyG5EXK5uKxR0',
-    appId: '1:909144850972:web:a9eb7a5cfcec7e437c55d9',
-    messagingSenderId: '909144850972',
-    projectId: 'life-line-victim-27aaa',
-    authDomain: 'life-line-victim-27aaa.firebaseapp.com',
-    storageBucket: 'life-line-victim-27aaa.firebasestorage.app',
+  static const FirebaseOptions _victimAndroidOptions = FirebaseOptions(
+    apiKey: 'AIzaSyByihQ3YBdrJUrAAxFSX3257fUMa0AJ6uo',
+    appId: '1:503939690280:android:aff06bb9fb777faf792a1d',
+    messagingSenderId: '503939690280',
+    projectId: 'project-life-line',
+    storageBucket: 'project-life-line.firebasestorage.app',
+  );
+
+  static const FirebaseOptions _victimIosOptions = FirebaseOptions(
+    apiKey: 'AIzaSyBDX51z8C6yiZnbEHgHK70UxnRZcn5oSd0',
+    appId: '1:503939690280:ios:ed2fb1d85f841609792a1d',
+    messagingSenderId: '503939690280',
+    projectId: 'project-life-line',
+    storageBucket: 'project-life-line.firebasestorage.app',
+    iosBundleId: 'com.example.lifeLine',
+  );
+
+  // life-line-rescuer database credentials
+  static const FirebaseOptions _rescuerAndroidOptions = FirebaseOptions(
+    apiKey: 'AIzaSyDs-CoAc_fqrB-3BMl4N7pYSavyNV72zUQ',
+    appId: '1:494066243537:android:ffdb36137d6d3cb1a4b2f0',
+    messagingSenderId: '494066243537',
+    projectId: 'life-line-rescuer-b1f1c',
+    storageBucket: 'life-line-rescuer-b1f1c.firebasestorage.app',
+  );
+
+  static const FirebaseOptions _rescuerIosOptions = FirebaseOptions(
+    apiKey: 'AIzaSyA3cUXkIjLsHhTv2l3OKhNzE3EZtejqxLg',
+    appId: '1:494066243537:ios:8f122b25432725a6a4b2f0',
+    messagingSenderId: '494066243537',
+    projectId: 'life-line-rescuer-b1f1c',
+    storageBucket: 'life-line-rescuer-b1f1c.firebasestorage.app',
+    iosBundleId: 'com.example.lifeLineRescuer',
   );
 
   @override
@@ -65,6 +93,7 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
     try {
       FirebaseApp ngoApp;
       FirebaseApp victimApp;
+      FirebaseApp rescuerApp;
 
       // NGO Firebase
       try {
@@ -80,19 +109,34 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
 
       // Victim Firebase
       try {
-        victimApp = Firebase.app('life-line-victim');
+        victimApp = await Firebase.initializeApp(
+          name: 'life-line-victim',
+          options: Platform.isIOS ? _victimIosOptions : _victimAndroidOptions,
+        );
       } catch (_) {
         victimApp = await Firebase.initializeApp(
           name: 'life-line-victim',
-          options: _victimFirebaseOptions,
+          options: Platform.isIOS ? _victimIosOptions : _victimAndroidOptions,
         );
       }
 
       _victimFirestore = FirebaseFirestore.instanceFor(app: victimApp);
 
+      // Rescuer Firebase
+      try {
+        rescuerApp = Firebase.app('life-line-rescuer');
+      } catch (_) {
+        rescuerApp = await Firebase.initializeApp(
+          name: 'life-line-rescuer',
+          options: Platform.isIOS ? _rescuerIosOptions : _rescuerAndroidOptions,
+        );
+      }
+
+      _rescuerFirestore = FirebaseFirestore.instanceFor(app: rescuerApp);
+
       await Future.wait([
         _fetchNgoRequests(),
-        _fetchVictimCount(),
+        _fetchUserCount(),
         _fetchNgoCount(),
       ]);
 
@@ -195,19 +239,23 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
     }
   }
 
-  Future<void> _fetchVictimCount() async {
-    if (_victimFirestore == null) return;
+  Future<void> _fetchUserCount() async {
+    if (_victimFirestore == null || _rescuerFirestore == null) return;
 
     try {
-      final snapshot = await _victimFirestore!.collection('users').get();
+      final results = await Future.wait([
+        _victimFirestore!.collection('users').get(),
+        _rescuerFirestore!.collection('users').get(),
+      ]);
 
       if (!mounted) return;
 
-      final victimCount = snapshot.docs.length;
+      final victimCount = results[0].docs.length;
+      final rescuerCount = results[1].docs.length;
 
-      if (mounted) {
-        ref.read(adminPageProvider.notifier).setVictimCount(victimCount);
-      }
+      ref
+          .read(adminPageProvider.notifier)
+          .setUserCount(victimCount + rescuerCount);
     } catch (e) {
       rethrow;
     }
@@ -219,9 +267,11 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
     }
 
     try {
-      await _fetchNgoRequests();
-      await _fetchVictimCount();
-      await _fetchNgoCount();
+      await Future.wait([
+        _fetchNgoRequests(),
+        _fetchUserCount(),
+        _fetchNgoCount(),
+      ]);
     } catch (e) {
       if (mounted) {
         pageMessage('Error refreshing data', context, AppColors.error);
@@ -506,54 +556,8 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
                                     isCompact,
                                   ),
                                 ),
-                                if (!isCompact) ...[
-                                  const SizedBox(width: AppSpacing.lg),
-                                  MouseRegion(
-                                    cursor: SystemMouseCursors.click,
-                                    child: GestureDetector(
-                                      onTap: refreshData,
-                                      child: Container(
-                                        padding: const EdgeInsets.all(
-                                          AppSpacing.md,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: AppColors.primaryMaroon,
-                                          borderRadius: BorderRadius.circular(
-                                            12,
-                                          ),
-                                        ),
-                                        child: const Icon(
-                                          Icons.refresh,
-                                          color: Colors.white,
-                                          size: 24,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ],
                               ],
                             ),
-                            if (isCompact) ...[
-                              const SizedBox(height: AppSpacing.lg),
-                              SizedBox(
-                                width: double.infinity,
-                                child: ElevatedButton.icon(
-                                  onPressed: refreshData,
-                                  icon: const Icon(Icons.refresh, size: 20),
-                                  label: const Text('Refresh Data'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppColors.primaryMaroon,
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: AppSpacing.md,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
                             const SizedBox(height: AppSpacing.xxl),
                             _buildStatusSection(isMobile, isCompact),
                             const SizedBox(height: AppSpacing.xl),
@@ -665,7 +669,6 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
   Widget _buildNotificationsSection() {
     return Consumer(
       builder: (context, ref, child) {
-        if (!mounted) return const SizedBox.shrink();
         final ngoRequests = ref.watch(
           adminPageProvider.select((v) => v.ngoRequests),
         );
@@ -889,11 +892,9 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
   Widget _buildStatCards(bool isCompact) {
     return Consumer(
       builder: (context, ref, child) {
-        if (!mounted) return const SizedBox.shrink();
         final victimCount = ref.watch(
-          adminPageProvider.select((v) => v.victimCount),
+          adminPageProvider.select((v) => v.userCount),
         );
-        if (!mounted) return const SizedBox.shrink();
         final ngoCount = ref.watch(adminPageProvider.select((v) => v.ngoCount));
 
         final stats = [

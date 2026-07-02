@@ -9,6 +9,7 @@ import 'package:life_line_admin/widgets/global/page_message.dart';
 import 'package:life_line_admin/widgets/global/page_navigation.dart';
 import 'package:life_line_admin/widgets/nav_bar.dart';
 import 'package:life_line_admin/pages/admin_dasboard.dart';
+import 'dart:io' show Platform;
 
 class ShowRescuerInfo extends ConsumerStatefulWidget {
   const ShowRescuerInfo({super.key});
@@ -22,12 +23,21 @@ class _ShowRescuerInfoState extends ConsumerState<ShowRescuerInfo> {
   FirebaseFirestore? _rescuerFirestore;
 
   // life-line-rescuer database credentials
-  static const FirebaseOptions _rescuerFirebaseOptions = FirebaseOptions(
+  static const FirebaseOptions _rescuerAndroidOptions = FirebaseOptions(
     apiKey: 'AIzaSyDs-CoAc_fqrB-3BMl4N7pYSavyNV72zUQ',
     appId: '1:494066243537:android:ffdb36137d6d3cb1a4b2f0',
     messagingSenderId: '494066243537',
     projectId: 'life-line-rescuer-b1f1c',
     storageBucket: 'life-line-rescuer-b1f1c.firebasestorage.app',
+  );
+
+  static const FirebaseOptions _rescuerIosOptions = FirebaseOptions(
+    apiKey: 'AIzaSyA3cUXkIjLsHhTv2l3OKhNzE3EZtejqxLg',
+    appId: '1:494066243537:ios:8f122b25432725a6a4b2f0',
+    messagingSenderId: '494066243537',
+    projectId: 'life-line-rescuer-b1f1c',
+    storageBucket: 'life-line-rescuer-b1f1c.firebasestorage.app',
+    iosBundleId: 'com.example.lifeLineRescuer',
   );
 
   @override
@@ -56,7 +66,7 @@ class _ShowRescuerInfoState extends ConsumerState<ShowRescuerInfo> {
       } catch (_) {
         rescuerApp = await Firebase.initializeApp(
           name: 'life-line-rescuer',
-          options: _rescuerFirebaseOptions,
+          options: Platform.isIOS ? _rescuerIosOptions : _rescuerAndroidOptions,
         );
       }
       _rescuerFirestore = FirebaseFirestore.instanceFor(app: rescuerApp);
@@ -274,13 +284,11 @@ class _ShowRescuerInfoState extends ConsumerState<ShowRescuerInfo> {
                           children: [
                             _buildHeader(isMobile),
                             SizedBox(
-                              height:
-                                  isMobile ? AppSpacing.lg : AppSpacing.xxl,
+                              height: isMobile ? AppSpacing.lg : AppSpacing.xxl,
                             ),
                             _buildSearchBar(isMobile),
                             SizedBox(
-                              height:
-                                  isMobile ? AppSpacing.lg : AppSpacing.xxl,
+                              height: isMobile ? AppSpacing.lg : AppSpacing.xxl,
                             ),
                             Consumer(
                               builder: (context, ref, child) {
@@ -297,7 +305,6 @@ class _ShowRescuerInfoState extends ConsumerState<ShowRescuerInfo> {
             ),
             Consumer(
               builder: (context, ref, child) {
-                if (!mounted) return const SizedBox.shrink();
                 final isLoading = ref.watch(
                   rescuerPageProvider.select((v) => v.isLoading),
                 );
@@ -520,8 +527,7 @@ class _ShowRescuerInfoState extends ConsumerState<ShowRescuerInfo> {
 
   Widget _buildContent(bool isMobile, bool isTablet, WidgetRef ref) {
     if (!mounted) return const SizedBox.shrink();
-    final rescuers =
-        ref.watch(rescuerPageProvider.select((v) => v.rescuers));
+    final rescuers = ref.watch(rescuerPageProvider.select((v) => v.rescuers));
 
     if (rescuers.isEmpty) {
       return Center(
@@ -573,7 +579,6 @@ class _ShowRescuerInfoState extends ConsumerState<ShowRescuerInfo> {
           // Table Content using Table widget
           Consumer(
             builder: (context, ref, child) {
-              if (!mounted) return const SizedBox.shrink();
               final rescuers = ref.watch(
                 rescuerPageProvider.select((v) => v.rescuers),
               );
@@ -699,10 +704,9 @@ class _ShowRescuerInfoState extends ConsumerState<ShowRescuerInfo> {
                     final rescuer = entry.value;
                     final firstName = rescuer['firstName'] ?? '';
                     final lastName = rescuer['lastName'] ?? '';
-                    final fullName =
-                        '$firstName $lastName'.trim().isEmpty
-                            ? 'N/A'
-                            : '$firstName $lastName'.trim();
+                    final fullName = '$firstName $lastName'.trim().isEmpty
+                        ? 'N/A'
+                        : '$firstName $lastName'.trim();
                     final ngoName = rescuer['ngoName'] ?? 'N/A';
                     final branchName = rescuer['branchName'] ?? 'N/A';
                     final id = rescuer['id'] ?? '';
@@ -854,9 +858,7 @@ class _ShowRescuerInfoState extends ConsumerState<ShowRescuerInfo> {
   }
 
   Widget _buildMobileRescuerList(WidgetRef ref) {
-    if (!mounted) return const SizedBox.shrink();
-    final rescuers =
-        ref.watch(rescuerPageProvider.select((v) => v.rescuers));
+    final rescuers = ref.watch(rescuerPageProvider.select((v) => v.rescuers));
     return Column(
       children: rescuers.map((rescuer) => _buildMobileCard(rescuer)).toList(),
     );

@@ -9,6 +9,7 @@ import 'package:life_line_admin/widgets/global/page_message.dart';
 import 'package:life_line_admin/widgets/global/page_navigation.dart';
 import 'package:life_line_admin/widgets/nav_bar.dart';
 import 'package:life_line_admin/pages/admin_dasboard.dart';
+import 'dart:io' show Platform;
 
 class ShowVictimInfo extends ConsumerStatefulWidget {
   const ShowVictimInfo({super.key});
@@ -21,14 +22,21 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
   final TextEditingController _searchController = TextEditingController();
   FirebaseFirestore? _victimFirestore;
 
-  // life-line-victim database credentials
-  static const FirebaseOptions _victimFirebaseOptions = FirebaseOptions(
-    apiKey: 'AIzaSyCgdeU_737w9twNR2zt5dzyG5EXK5uKxR0',
-    appId: '1:909144850972:web:a9eb7a5cfcec7e437c55d9',
-    messagingSenderId: '909144850972',
-    projectId: 'life-line-victim-27aaa',
-    authDomain: 'life-line-victim-27aaa.firebaseapp.com',
-    storageBucket: 'life-line-victim-27aaa.firebasestorage.app',
+  static const FirebaseOptions _victimIosOptions = FirebaseOptions(
+    apiKey: 'AIzaSyBDX51z8C6yiZnbEHgHK70UxnRZcn5oSd0',
+    appId: '1:503939690280:ios:ed2fb1d85f841609792a1d',
+    messagingSenderId: '503939690280',
+    projectId: 'project-life-line',
+    storageBucket: 'project-life-line.firebasestorage.app',
+    iosBundleId: 'com.example.lifeLine',
+  );
+
+  static const FirebaseOptions _victimAndroidOptions = FirebaseOptions(
+    apiKey: 'AIzaSyByihQ3YBdrJUrAAxFSX3257fUMa0AJ6uo',
+    appId: '1:503939690280:android:aff06bb9fb777faf792a1d',
+    messagingSenderId: '503939690280',
+    projectId: 'project-life-line',
+    storageBucket: 'project-life-line.firebasestorage.app',
   );
 
   @override
@@ -58,7 +66,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
       } catch (_) {
         victimApp = await Firebase.initializeApp(
           name: 'life-line-victim',
-          options: _victimFirebaseOptions,
+          options: Platform.isIOS ? _victimIosOptions : _victimAndroidOptions,
         );
       }
 
@@ -293,7 +301,6 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
             ),
             Consumer(
               builder: (context, ref, child) {
-                if (!mounted) return const SizedBox.shrink();
                 final isLoading = ref.watch(
                   victimPageProvider.select((v) => v.isLoading),
                 );
@@ -515,7 +522,6 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
   }
 
   Widget _buildContent(bool isMobile, bool isTablet, WidgetRef ref) {
-    if (!mounted) return const SizedBox.shrink();
     final victims = ref.watch(victimPageProvider.select((v) => v.victims));
 
     if (victims.isEmpty) {
@@ -568,7 +574,6 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
           // Table Content using Table widget
           Consumer(
             builder: (context, ref, child) {
-              if (!mounted) return const SizedBox.shrink();
               final victims = ref.watch(
                 victimPageProvider.select((v) => v.victims),
               );
@@ -843,7 +848,6 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
   }
 
   Widget _buildMobileVictimList(WidgetRef ref) {
-    if (!mounted) return const SizedBox.shrink();
     final victims = ref.watch(victimPageProvider.select((v) => v.victims));
     return Column(
       children: victims.map((victim) => _buildMobileCard(victim)).toList(),

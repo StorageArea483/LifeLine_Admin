@@ -54,7 +54,11 @@ class _SecurityQuestionState extends ConsumerState<SecurityQuestion> {
           pageNavigation(const ChangePassword(), context);
         } else {
           if (mounted) {
-            pageMessage('Incorrect security answer. Please try again.', context, AppColors.error);
+            pageMessage(
+              'Incorrect security answer. Please try again.',
+              context,
+              AppColors.error,
+            );
           }
         }
       }
@@ -169,7 +173,6 @@ class _SecurityQuestionState extends ConsumerState<SecurityQuestion> {
               height: isMobile ? 48 : AppSizes.submitButtonHeight,
               child: Consumer(
                 builder: (context, ref, child) {
-                  if (!mounted) return const SizedBox.shrink();
                   final isLoading = ref.watch(securityPageProvider);
                   return ElevatedButton(
                     onPressed: isLoading ? null : _handleRestorePassword,

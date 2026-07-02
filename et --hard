@@ -1,0 +1,16 @@
+[33m220fd17[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m Exception Handling Successful
+[33m5bde0d5[m Global configuration added for firesbase
+[33m311d648[m Global CircularProgressIndicator Added
+[33mceca132[m Firebase Listeners Improved
+[33mb1a7e0b[m Rescuer Section Added Successfully
+[33m1911ec4[m Added Global Message & Navigator
+[33m3afdc1d[m LifeLine Admin Bugs Fixed
+[33mde792bb[m Admin Dashboard Bug Fixed Successfully
+[33mc11f94e[m Stream Subscriptions Added
+[33ma184744[m Major Bugs and Features fixed of Settings Page
+[33m9bf49f8[m Minor Bugs fixed from Settings module
+[33m11662e0[m Settings Page Added
+[33m75f4c60[m Firestore Listeners Initialized
+[33m240f6bd[m NGO table and Victim table alignment fixed
+[33m053b7d7[m Code Refactored through Riverpod
+[33m8de163d[m Initial commit

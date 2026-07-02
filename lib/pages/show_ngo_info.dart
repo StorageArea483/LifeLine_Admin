@@ -294,7 +294,6 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
             ),
             Consumer(
               builder: (context, ref, child) {
-                if (!mounted) return const SizedBox.shrink();
                 final isLoading = ref.watch(
                   ngoPageProvider.select((v) => v.isLoading),
                 );
@@ -516,7 +515,6 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
   }
 
   Widget _buildContent(bool isMobile, bool isTablet, WidgetRef ref) {
-    if (!mounted) return const SizedBox.shrink();
     final ngos = ref.watch(ngoPageProvider.select((v) => v.ngos));
 
     if (ngos.isEmpty) {
@@ -569,7 +567,6 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
           // Table Content using Table widget
           Consumer(
             builder: (context, ref, child) {
-              if (!mounted) return const SizedBox.shrink();
               final ngos = ref.watch(ngoPageProvider.select((v) => v.ngos));
               return Table(
                 columnWidths: const {
@@ -940,7 +937,6 @@ class _ShowNgoInfoState extends ConsumerState<ShowNgoInfo> {
   }
 
   Widget _buildMobileNgoList(WidgetRef ref) {
-    if (!mounted) return const SizedBox.shrink();
     final ngos = ref.watch(ngoPageProvider.select((v) => v.ngos));
     return Column(children: ngos.map((ngo) => _buildMobileCard(ngo)).toList());
   }

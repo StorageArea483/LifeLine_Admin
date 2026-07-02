@@ -7,7 +7,7 @@ class AdminPageNotifier extends StateNotifier<AdminPageState> {
         AdminPageState(
           isLoading: false,
           ngoRequests: [],
-          victimCount: 0,
+          userCount: 0,
           ngoCount: 0,
         ),
       );
@@ -21,8 +21,8 @@ class AdminPageNotifier extends StateNotifier<AdminPageState> {
     state = state.copyWith(ngoRequests: requests);
   }
 
-  void setVictimCount(int count) {
-    state = state.copyWith(victimCount: count);
+  void setUserCount(int count) {
+    state = state.copyWith(userCount: count);
   }
 
   void setNgoCount(int count) {
@@ -33,26 +33,26 @@ class AdminPageNotifier extends StateNotifier<AdminPageState> {
 class AdminPageState {
   final bool isLoading;
   final List<Map<String, dynamic>> ngoRequests;
-  final int victimCount;
+  final int userCount;
   final int ngoCount;
 
   AdminPageState({
     required this.isLoading,
     required this.ngoRequests,
-    required this.victimCount,
+    required this.userCount,
     required this.ngoCount,
   });
 
   AdminPageState copyWith({
     bool? isLoading,
     List<Map<String, dynamic>>? ngoRequests,
-    int? victimCount,
+    int? userCount,
     int? ngoCount,
   }) {
     return AdminPageState(
       isLoading: isLoading ?? this.isLoading,
       ngoRequests: ngoRequests ?? this.ngoRequests,
-      victimCount: victimCount ?? this.victimCount,
+      userCount: userCount ?? this.userCount,
       ngoCount: ngoCount ?? this.ngoCount,
     );
   }
