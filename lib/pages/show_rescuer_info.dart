@@ -9,7 +9,6 @@ import 'package:life_line_admin/widgets/global/page_message.dart';
 import 'package:life_line_admin/widgets/global/page_navigation.dart';
 import 'package:life_line_admin/widgets/nav_bar.dart';
 import 'package:life_line_admin/pages/admin_dasboard.dart';
-import 'dart:io' show Platform;
 
 class ShowRescuerInfo extends ConsumerStatefulWidget {
   const ShowRescuerInfo({super.key});
@@ -23,21 +22,12 @@ class _ShowRescuerInfoState extends ConsumerState<ShowRescuerInfo> {
   FirebaseFirestore? _rescuerFirestore;
 
   // life-line-rescuer database credentials
-  static const FirebaseOptions _rescuerAndroidOptions = FirebaseOptions(
+  static const FirebaseOptions _rescuerFirebaseOptions = FirebaseOptions(
     apiKey: 'AIzaSyDs-CoAc_fqrB-3BMl4N7pYSavyNV72zUQ',
     appId: '1:494066243537:android:ffdb36137d6d3cb1a4b2f0',
     messagingSenderId: '494066243537',
     projectId: 'life-line-rescuer-b1f1c',
     storageBucket: 'life-line-rescuer-b1f1c.firebasestorage.app',
-  );
-
-  static const FirebaseOptions _rescuerIosOptions = FirebaseOptions(
-    apiKey: 'AIzaSyA3cUXkIjLsHhTv2l3OKhNzE3EZtejqxLg',
-    appId: '1:494066243537:ios:8f122b25432725a6a4b2f0',
-    messagingSenderId: '494066243537',
-    projectId: 'life-line-rescuer-b1f1c',
-    storageBucket: 'life-line-rescuer-b1f1c.firebasestorage.app',
-    iosBundleId: 'com.example.lifeLineRescuer',
   );
 
   @override
@@ -66,7 +56,7 @@ class _ShowRescuerInfoState extends ConsumerState<ShowRescuerInfo> {
       } catch (_) {
         rescuerApp = await Firebase.initializeApp(
           name: 'life-line-rescuer',
-          options: Platform.isIOS ? _rescuerIosOptions : _rescuerAndroidOptions,
+          options: _rescuerFirebaseOptions,
         );
       }
       _rescuerFirestore = FirebaseFirestore.instanceFor(app: rescuerApp);

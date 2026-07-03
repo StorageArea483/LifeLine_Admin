@@ -13,7 +13,6 @@ import 'package:life_line_admin/widgets/nav_bar.dart';
 import 'package:life_line_admin/pages/show_ngo_info.dart';
 import 'package:life_line_admin/pages/show_victim_info.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'dart:io' show Platform;
 
 class AdminDashboard extends ConsumerStatefulWidget {
   const AdminDashboard({super.key});
@@ -36,8 +35,7 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
     storageBucket: 'life-line-ngo.firebasestorage.app',
   );
 
-  // life-line-victim database credentials
-  static const FirebaseOptions _victimAndroidOptions = FirebaseOptions(
+  static const FirebaseOptions _victimFirebaseOptions = FirebaseOptions(
     apiKey: 'AIzaSyByihQ3YBdrJUrAAxFSX3257fUMa0AJ6uo',
     appId: '1:503939690280:android:aff06bb9fb777faf792a1d',
     messagingSenderId: '503939690280',
@@ -45,31 +43,12 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
     storageBucket: 'project-life-line.firebasestorage.app',
   );
 
-  static const FirebaseOptions _victimIosOptions = FirebaseOptions(
-    apiKey: 'AIzaSyBDX51z8C6yiZnbEHgHK70UxnRZcn5oSd0',
-    appId: '1:503939690280:ios:ed2fb1d85f841609792a1d',
-    messagingSenderId: '503939690280',
-    projectId: 'project-life-line',
-    storageBucket: 'project-life-line.firebasestorage.app',
-    iosBundleId: 'com.example.lifeLine',
-  );
-
-  // life-line-rescuer database credentials
-  static const FirebaseOptions _rescuerAndroidOptions = FirebaseOptions(
+  static const FirebaseOptions _rescuerFirebasedOptions = FirebaseOptions(
     apiKey: 'AIzaSyDs-CoAc_fqrB-3BMl4N7pYSavyNV72zUQ',
     appId: '1:494066243537:android:ffdb36137d6d3cb1a4b2f0',
     messagingSenderId: '494066243537',
     projectId: 'life-line-rescuer-b1f1c',
     storageBucket: 'life-line-rescuer-b1f1c.firebasestorage.app',
-  );
-
-  static const FirebaseOptions _rescuerIosOptions = FirebaseOptions(
-    apiKey: 'AIzaSyA3cUXkIjLsHhTv2l3OKhNzE3EZtejqxLg',
-    appId: '1:494066243537:ios:8f122b25432725a6a4b2f0',
-    messagingSenderId: '494066243537',
-    projectId: 'life-line-rescuer-b1f1c',
-    storageBucket: 'life-line-rescuer-b1f1c.firebasestorage.app',
-    iosBundleId: 'com.example.lifeLineRescuer',
   );
 
   @override
@@ -111,12 +90,12 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
       try {
         victimApp = await Firebase.initializeApp(
           name: 'life-line-victim',
-          options: Platform.isIOS ? _victimIosOptions : _victimAndroidOptions,
+          options: _victimFirebaseOptions,
         );
       } catch (_) {
         victimApp = await Firebase.initializeApp(
           name: 'life-line-victim',
-          options: Platform.isIOS ? _victimIosOptions : _victimAndroidOptions,
+          options: _victimFirebaseOptions,
         );
       }
 
@@ -128,7 +107,7 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
       } catch (_) {
         rescuerApp = await Firebase.initializeApp(
           name: 'life-line-rescuer',
-          options: Platform.isIOS ? _rescuerIosOptions : _rescuerAndroidOptions,
+          options: _rescuerFirebasedOptions,
         );
       }
 
@@ -556,6 +535,31 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
                                     isCompact,
                                   ),
                                 ),
+                                if (!isCompact) ...[
+                                  const SizedBox(width: AppSpacing.lg),
+                                  MouseRegion(
+                                    cursor: SystemMouseCursors.click,
+                                    child: GestureDetector(
+                                      onTap: refreshData,
+                                      child: Container(
+                                        padding: const EdgeInsets.all(
+                                          AppSpacing.md,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.primaryMaroon,
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                        ),
+                                        child: const Icon(
+                                          Icons.refresh,
+                                          color: Colors.white,
+                                          size: 24,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ],
                             ),
                             const SizedBox(height: AppSpacing.xxl),

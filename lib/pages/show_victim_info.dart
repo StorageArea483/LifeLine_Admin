@@ -9,7 +9,6 @@ import 'package:life_line_admin/widgets/global/page_message.dart';
 import 'package:life_line_admin/widgets/global/page_navigation.dart';
 import 'package:life_line_admin/widgets/nav_bar.dart';
 import 'package:life_line_admin/pages/admin_dasboard.dart';
-import 'dart:io' show Platform;
 
 class ShowVictimInfo extends ConsumerStatefulWidget {
   const ShowVictimInfo({super.key});
@@ -22,16 +21,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
   final TextEditingController _searchController = TextEditingController();
   FirebaseFirestore? _victimFirestore;
 
-  static const FirebaseOptions _victimIosOptions = FirebaseOptions(
-    apiKey: 'AIzaSyBDX51z8C6yiZnbEHgHK70UxnRZcn5oSd0',
-    appId: '1:503939690280:ios:ed2fb1d85f841609792a1d',
-    messagingSenderId: '503939690280',
-    projectId: 'project-life-line',
-    storageBucket: 'project-life-line.firebasestorage.app',
-    iosBundleId: 'com.example.lifeLine',
-  );
-
-  static const FirebaseOptions _victimAndroidOptions = FirebaseOptions(
+  static const FirebaseOptions _victimFirebaseOptions = FirebaseOptions(
     apiKey: 'AIzaSyByihQ3YBdrJUrAAxFSX3257fUMa0AJ6uo',
     appId: '1:503939690280:android:aff06bb9fb777faf792a1d',
     messagingSenderId: '503939690280',
@@ -66,7 +56,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
       } catch (_) {
         victimApp = await Firebase.initializeApp(
           name: 'life-line-victim',
-          options: Platform.isIOS ? _victimIosOptions : _victimAndroidOptions,
+          options: _victimFirebaseOptions,
         );
       }
 
