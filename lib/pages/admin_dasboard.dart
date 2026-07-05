@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:life_line_admin/pages/admin_authentication.dart';
+import 'package:life_line_admin/pages/critical_alerts.dart';
 import 'package:life_line_admin/pages/show_rescuer_info.dart';
 import 'package:life_line_admin/providers/admin_page_provider.dart';
 import 'package:life_line_admin/styles/styles.dart';
@@ -117,6 +118,7 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
         _fetchNgoRequests(),
         _fetchUserCount(),
         _fetchNgoCount(),
+        _fetchOngoingOperationsCount(),
       ]);
 
       if (mounted) {
@@ -222,19 +224,35 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
     if (_victimFirestore == null || _rescuerFirestore == null) return;
 
     try {
-      final results = await Future.wait([
-        _victimFirestore!.collection('users').get(),
-        _rescuerFirestore!.collection('users').get(),
-      ]);
+      final results = await _victimFirestore!.collection('users').get();
 
       if (!mounted) return;
 
-      final victimCount = results[0].docs.length;
-      final rescuerCount = results[1].docs.length;
+      final victimCount = results.docs.length;
 
-      ref
-          .read(adminPageProvider.notifier)
-          .setUserCount(victimCount + rescuerCount);
+      ref.read(adminPageProvider.notifier).setVictimCount(victimCount);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> _fetchOngoingOperationsCount() async {
+    if (_victimFirestore == null) return;
+
+    try {
+      final snapshot = await _victimFirestore!.collection('users').get();
+
+      if (!mounted) return;
+
+      final ongoingOperationsCount = snapshot.docs
+          .where((doc) => doc.data()['requestAccepted'] == 'accepted')
+          .length;
+
+      if (mounted) {
+        ref
+            .read(adminPageProvider.notifier)
+            .setOngoingOperationsCount(ongoingOperationsCount);
+      }
     } catch (e) {
       rethrow;
     }
@@ -250,6 +268,7 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
         _fetchNgoRequests(),
         _fetchUserCount(),
         _fetchNgoCount(),
+        _fetchOngoingOperationsCount(),
       ]);
     } catch (e) {
       if (mounted) {
@@ -897,28 +916,40 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
     return Consumer(
       builder: (context, ref, child) {
         final victimCount = ref.watch(
-          adminPageProvider.select((v) => v.userCount),
+          adminPageProvider.select((v) => v.victimCount),
         );
         final ngoCount = ref.watch(adminPageProvider.select((v) => v.ngoCount));
+        final ongoingOperationsCount = ref.watch(
+          adminPageProvider.select((v) => v.onGoingOperations),
+        );
 
         final stats = [
           {
-            'title': 'Active Users',
+            'title': 'Active Victims',
             'value': victimCount.toString(),
-            'subtitle': 'Real-time count',
+            'subtitle': 'Total count',
             'color': Colors.orange,
+            'onTap': () {
+              pageNavigation(const ShowVictimInfo(), context);
+            },
           },
           {
             'title': 'Registered NGOs',
             'value': ngoCount.toString(),
-            'subtitle': 'Real-time count',
+            'subtitle': 'Total count',
             'color': Colors.purple,
+            'onTap': () {
+              pageNavigation(const ShowNgoInfo(), context);
+            },
           },
           {
             'title': 'Ongoing Operations',
-            'value': '1',
-            'subtitle': 'Real-time count',
+            'value': ongoingOperationsCount.toString(),
+            'subtitle': 'Real-Time count',
             'color': Colors.red,
+            'onTap': () {
+              pageNavigation(const CriticalAlerts(), context);
+            },
           },
         ];
 
@@ -934,6 +965,7 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
                       value: stat['value'] as String,
                       subtitle: stat['subtitle'] as String,
                       color: stat['color'] as Color,
+                      onTap: stat['onTap'] as VoidCallback?,
                     ),
                   ),
                 )
@@ -959,6 +991,7 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard> {
                         value: entry.value['value'] as String,
                         subtitle: entry.value['subtitle'] as String,
                         color: entry.value['color'] as Color,
+                        onTap: entry.value['onTap'] as VoidCallback?,
                       ),
                     ),
                   ),
@@ -1018,65 +1051,75 @@ class _StatCard extends StatelessWidget {
   final String value;
   final String subtitle;
   final Color color;
+  final VoidCallback? onTap;
 
   const _StatCard({
     required this.title,
     required this.value,
     required this.subtitle,
     required this.color,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.xxl),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.darkCharcoal.withValues(alpha: 0.06),
-            blurRadius: 12,
-            offset: const Offset(0, 2),
+    return MouseRegion(
+      cursor: onTap != null
+          ? SystemMouseCursors.click
+          : SystemMouseCursors.basic,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(AppSpacing.xxl),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.darkCharcoal.withValues(alpha: 0.06),
+                blurRadius: 12,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.people, color: color, size: 24),
-              const SizedBox(width: AppSpacing.sm),
-              Flexible(
-                child: Text(
-                  title,
-                  style: AppText.fieldLabel.copyWith(
-                    color: AppColors.textSecondary,
-                    fontWeight: FontWeight.w500,
-                    fontSize: 14,
+              Row(
+                children: [
+                  Icon(Icons.people, color: color, size: 24),
+                  const SizedBox(width: AppSpacing.sm),
+                  Flexible(
+                    child: Text(
+                      title,
+                      style: AppText.fieldLabel.copyWith(
+                        color: AppColors.textSecondary,
+                        fontWeight: FontWeight.w500,
+                        fontSize: 14,
+                      ),
+                    ),
                   ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.md),
+              Text(
+                value,
+                style: AppText.welcomeTitle.copyWith(
+                  fontSize: 32,
+                  color: AppColors.darkCharcoal,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                subtitle,
+                style: AppText.small.copyWith(
+                  color: AppColors.success,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: AppSpacing.md),
-          Text(
-            value,
-            style: AppText.welcomeTitle.copyWith(
-              fontSize: 32,
-              color: AppColors.darkCharcoal,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            subtitle,
-            style: AppText.small.copyWith(
-              color: AppColors.success,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

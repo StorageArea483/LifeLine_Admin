@@ -75,6 +75,9 @@ class _NavBarState extends State<NavBar> {
                                 'Dashboard',
                                 style: AppText.base,
                               ),
+                              onTap: () {
+                                pageNavigation(const AdminDashboard(), context);
+                              },
                             ),
                           ),
                           const SizedBox(width: AppSpacing.xxl),
@@ -114,7 +117,10 @@ class _NavBarState extends State<NavBar> {
                             child: ElevatedButton(
                               onPressed: () {
                                 if (mounted) {
-                                  pageNavigation(const AdminAuthentication(), context);
+                                  pageNavigation(
+                                    const AdminAuthentication(),
+                                    context,
+                                  );
                                 }
                               },
                               style: AppButtons.submit,
