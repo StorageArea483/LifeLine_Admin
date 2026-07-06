@@ -84,24 +84,6 @@ class _NavBarState extends State<NavBar> {
                           MouseRegion(
                             cursor: SystemMouseCursors.click,
                             child: GestureDetector(
-                              child: const Text('Reports', style: AppText.base),
-                            ),
-                          ),
-                          const SizedBox(width: AppSpacing.xxl),
-                          MouseRegion(
-                            cursor: SystemMouseCursors.click,
-                            child: GestureDetector(
-                              onTap: () {},
-                              child: const Text(
-                                'SOS Logs',
-                                style: AppText.base,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: AppSpacing.xxl),
-                          MouseRegion(
-                            cursor: SystemMouseCursors.click,
-                            child: GestureDetector(
                               onTap: () {
                                 pageNavigation(const SettingsScreen(), context);
                               },
@@ -189,27 +171,6 @@ Widget buildDrawer(BuildContext context) {
             onTap: () {
               if (context.mounted) {
                 pageNavigation(const AdminDashboard(), context);
-              }
-            },
-          ),
-          ListTile(
-            leading: const Icon(
-              Icons.assessment,
-              color: AppColors.primaryMaroon,
-            ),
-            title: const Text('Reports', style: AppText.fieldLabel),
-            onTap: () {
-              if (context.mounted) {
-                Navigator.pop(context);
-              }
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.history, color: AppColors.primaryMaroon),
-            title: const Text('SOS Logs', style: AppText.fieldLabel),
-            onTap: () {
-              if (context.mounted) {
-                Navigator.pop(context);
               }
             },
           ),

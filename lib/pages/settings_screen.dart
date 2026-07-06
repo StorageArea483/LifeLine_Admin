@@ -59,6 +59,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ref
               .read(settingsPageProvider.notifier)
               .setSystemMaintenance(settingsData['maintenance'] ?? false);
+          ref
+              .read(settingsPageProvider.notifier)
+              .setRescuerMaintenance(
+                settingsData['rescuer maintenance'] ?? false,
+              );
         }
       }
     } catch (e) {
@@ -459,7 +464,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     child: _buildActionButton(
                       systemMaintenance
                           ? 'Exit Maintenance'
-                          : 'Enter Maintenance',
+                          : 'Enter Victim App Maintenance',
                       systemMaintenance ? AppColors.success : AppColors.warning,
                       () async {
                         if (mounted) {
@@ -489,6 +494,123 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               ref
                                   .read(settingsPageProvider.notifier)
                                   .setSystemMaintenance(!systemMaintenance);
+                            }
+                          } catch (e) {
+                            if (mounted) {
+                              // ignore: use_build_context_synchronously
+                              pageMessage(
+                                'An unexpected error occurred',
+                                // ignore: use_build_context_synchronously
+                                context,
+                                AppColors.error,
+                              );
+                            }
+                          } finally {
+                            if (mounted) {
+                              ref
+                                  .read(settingsPageProvider.notifier)
+                                  .setLoading(false);
+                            }
+                          }
+                        }
+                      },
+                      isMobile,
+                      isCompact: true,
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: AppSpacing.xl),
+          Consumer(
+            builder: (context, ref, child) {
+              final rescuerMaintenance = ref.watch(
+                settingsPageProvider.select((v) => v.rescuerMaintenance),
+              );
+              return Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.md,
+                      vertical: AppSpacing.xs,
+                    ),
+                    decoration: BoxDecoration(
+                      color: rescuerMaintenance
+                          ? AppColors.warning.withValues(alpha: 0.1)
+                          : AppColors.success.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: rescuerMaintenance
+                            ? AppColors.warning.withValues(alpha: 0.3)
+                            : AppColors.success.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: rescuerMaintenance
+                                ? AppColors.warning
+                                : AppColors.success,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.xs),
+                        Text(
+                          rescuerMaintenance ? 'Maintenance' : 'Active',
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: isMobile ? 12 : 14,
+                            fontWeight: FontWeight.w600,
+                            color: rescuerMaintenance
+                                ? AppColors.warning
+                                : AppColors.success,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.md),
+                  Flexible(
+                    child: _buildActionButton(
+                      rescuerMaintenance
+                          ? 'Exit Maintenance'
+                          : 'Enter Rescuer App Maintenance',
+                      rescuerMaintenance
+                          ? AppColors.success
+                          : AppColors.warning,
+                      () async {
+                        if (mounted) {
+                          ref
+                              .read(settingsPageProvider.notifier)
+                              .setLoading(true);
+                          try {
+                            final querySnapshot = await FirebaseFirestore
+                                .instance
+                                .collection('settings')
+                                .get();
+
+                            if (querySnapshot.docs.isNotEmpty) {
+                              // Document exists, update it
+                              await querySnapshot.docs.first.reference.update({
+                                'rescuer maintenance': !rescuerMaintenance,
+                              });
+                            } else {
+                              pageMessage(
+                                'Failed to process your request',
+                                // ignore: use_build_context_synchronously
+                                context,
+                                AppColors.error,
+                              );
+                            }
+                            if (mounted) {
+                              ref
+                                  .read(settingsPageProvider.notifier)
+                                  .setRescuerMaintenance(!rescuerMaintenance);
                             }
                           } catch (e) {
                             if (mounted) {

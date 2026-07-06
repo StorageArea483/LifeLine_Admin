@@ -8,6 +8,7 @@ class SettingsPageNotifier extends StateNotifier<SettingsPageState> {
           autoApprovalMode: false,
           sosSystemEnabled: false,
           systemMaintenance: false,
+          rescuerMaintenance: false,
         ),
       );
 
@@ -26,6 +27,10 @@ class SettingsPageNotifier extends StateNotifier<SettingsPageState> {
   void setSystemMaintenance(bool systemMaintenance) {
     state = state.copyWith(systemMaintenance: systemMaintenance);
   }
+
+  void setRescuerMaintenance(bool rescuerMaintenance) {
+    state = state.copyWith(rescuerMaintenance: rescuerMaintenance);
+  }
 }
 
 class SettingsPageState {
@@ -33,12 +38,14 @@ class SettingsPageState {
   final bool autoApprovalMode;
   final bool sosSystemEnabled;
   final bool systemMaintenance;
+  final bool rescuerMaintenance;
 
   SettingsPageState({
     required this.isLoading,
     required this.autoApprovalMode,
     required this.sosSystemEnabled,
     required this.systemMaintenance,
+    required this.rescuerMaintenance,
   });
 
   SettingsPageState copyWith({
@@ -46,12 +53,14 @@ class SettingsPageState {
     bool? autoApprovalMode,
     bool? sosSystemEnabled,
     bool? systemMaintenance,
+    bool? rescuerMaintenance,
   }) {
     return SettingsPageState(
       isLoading: isLoading ?? this.isLoading,
       autoApprovalMode: autoApprovalMode ?? this.autoApprovalMode,
       sosSystemEnabled: sosSystemEnabled ?? this.sosSystemEnabled,
       systemMaintenance: systemMaintenance ?? this.systemMaintenance,
+      rescuerMaintenance: rescuerMaintenance ?? this.rescuerMaintenance,
     );
   }
 }
