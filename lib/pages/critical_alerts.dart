@@ -247,8 +247,8 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
     return FlutterMap(
       mapController: _mapController,
       options: const MapOptions(
-        initialCenter: LatLng(34.1688, 73.2215), // Default: Abbottabad
-        initialZoom: 11,
+        initialCenter: LatLng(37.4170, -122.0845), // Default: Abbottabad
+        initialZoom: 14,
         minZoom: 1,
         maxZoom: 18,
         interactionOptions: InteractionOptions(
